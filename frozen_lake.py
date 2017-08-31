@@ -1,3 +1,7 @@
+"""
+Module from the assignments for UC Berkeley's Deep RL course.
+"""
+
 import numpy as np
 import sys
 from six import StringIO, b

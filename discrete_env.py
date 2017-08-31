@@ -1,3 +1,7 @@
+"""
+Module from the assignments for UC Berkeley's Deep RL course.
+"""
+
 import numpy as np
 
 from gym import Env, spaces
