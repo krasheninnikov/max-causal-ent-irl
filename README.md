@@ -5,6 +5,6 @@ Python implementation of Maximum Causal Entropy Inverse Reinforcement Learning f
 Main file: ```max_causal_ent_irl.py```.
 
 Work in progress. Current TODOs:
-1. Compute $P_0$ for the occupancy measure for the gradient of the infinite horizon discounted version of the algorithm as in section A of Levine's GPIRL supplement http://graphics.stanford.edu/projects/gpirl/gpirl_supplement.pdf.
+1. Compute P_0 for the occupancy measure for the gradient of the infinite horizon discounted version of the algorithm as in section A of Levine's GPIRL supplement http://graphics.stanford.edu/projects/gpirl/gpirl_supplement.pdf.
 2. Documentation.
 
