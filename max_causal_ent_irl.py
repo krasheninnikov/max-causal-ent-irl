@@ -90,7 +90,7 @@ def max_causal_ent_irl(
         # IRL log likelihood gradient w.r.t reward parameters. 
         # Corresponds to line 9 of Algorithm 2 from the MaxCausalEnt IRL paper 
         # www.cs.cmu.edu/~bziebart/publications/maximum-causal-entropy.pdf. 
-        # Negate to get the gradient of thae negative log likelihood, 
+        # Negate to get the gradient of the negative log likelihood, 
         # which is then minimized with GD.
         dL_dtheta = -(mean_f_count - np.dot(feature_matrix.T, D))
 
@@ -108,9 +108,9 @@ def mceirl_run(t_expert=1e-2,
          t_irl=1e-2,
          t_opt=1e-2,
          gamma=1,
-         h=8,
-         n_traj=1000,
-         traj_len=8,
+         h=10,
+         n_traj=200,
+         traj_len=10,
          learning_rate=0.01,
          epochs=350,
          verbose=True):
@@ -196,7 +196,7 @@ def mceirl_run(t_expert=1e-2,
             t_irl,
             epochs,
             learning_rate,
-            verbose)
+            verbose=verbose)
     if verbose: print('Final reward weights: ', theta)
     
 
