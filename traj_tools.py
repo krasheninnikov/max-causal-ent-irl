@@ -78,3 +78,9 @@ def compute_s_a_visitations(mdp, gamma, trajectories):
     P_0 = s_0_count / trajectories.shape[0]
     
     return sa_visit_count, P_0
+
+
+def policy_return(mdp, policy, gamma, timesteps=20, num_traj=5000, r=None):
+    traj = generate_trajectories(mdp, policy, timesteps, num_traj)
+    sa_visit_count, _ = compute_s_a_visitations(mdp, gamma, traj)
+    return np.dot((np.sum(sa_visit_count, axis=1)), r)/num_traj

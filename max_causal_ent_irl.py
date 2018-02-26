@@ -1,12 +1,21 @@
 import numpy as np 
 from frozen_lake import FrozenLakeEnv
 from mdps import MDP, MDPOneTimeR
-from traj_tools import generate_trajectories, compute_s_a_visitations
+from traj_tools import generate_trajectories, compute_s_a_visitations, policy_return
 from value_iter_and_policy import vi_boltzmann, vi_rational 
 from occupancy_measure import compute_D
 
-def max_causal_ent_irl(mdp, feature_matrix, trajectories, gamma=1, h=None, 
-                       temperature=1, epochs=1, learning_rate=0.2, theta=None):
+def max_causal_ent_irl(
+        mdp, 
+        feature_matrix,
+        trajectories,
+        gamma=1,
+        h=None, 
+        temperature=1,
+        epochs=1,
+        learning_rate=0.2,
+        theta=None,
+        verbose=True):
     '''
     Finds theta, a reward parametrization vector (r[s] = features[s]'.*theta) 
     that maximizes the log likelihood of the given expert trajectories, 
@@ -49,13 +58,16 @@ def max_causal_ent_irl(mdp, feature_matrix, trajectories, gamma=1, h=None,
         algorithm from the expert trajectories.
     '''    
     
+    n_traj = trajectories.shape[0]
+    traj_len = trajectories.shape[1]
+    
     # Compute the state-action visitation counts and the probability 
     # of a trajectory starting in state s from the expert trajectories.
     sa_visit_count, P_0 = compute_s_a_visitations(mdp, gamma, trajectories)
     
     # Mean state visitation count of expert trajectories
     # mean_s_visit_count[s] = ( \sum_{i,t} 1_{traj_s_{i,t} = s}) / num_traj
-    mean_s_visit_count = np.sum(sa_visit_count,1) / trajectories.shape[0]
+    mean_s_visit_count = np.sum(sa_visit_count,1) / n_traj
     # Mean feature count of expert trajectories
     mean_f_count = np.dot(feature_matrix.T, mean_s_visit_count)
     
@@ -73,33 +85,35 @@ def max_causal_ent_irl(mdp, feature_matrix, trajectories, gamma=1, h=None,
         L = np.sum(sa_visit_count * (Q - V))
         
         # The expected #times policy π visits state s in a given #timesteps.
-        D = compute_D(mdp, gamma, policy, P_0, t_max=trajectories.shape[1])        
+        D = compute_D(mdp, gamma, policy, P_0, t_max=traj_len)        
 
-        # IRL log likelihood gradient w.r.t rewardparameters. 
+        # IRL log likelihood gradient w.r.t reward parameters. 
         # Corresponds to line 9 of Algorithm 2 from the MaxCausalEnt IRL paper 
         # www.cs.cmu.edu/~bziebart/publications/maximum-causal-entropy.pdf. 
-        # Negate to get the gradient of neg log likelihood, 
+        # Negate to get the gradient of thae negative log likelihood, 
         # which is then minimized with GD.
         dL_dtheta = -(mean_f_count - np.dot(feature_matrix.T, D))
 
         # Gradient descent
         theta = theta - learning_rate * dL_dtheta
 
-        if (i+1)%10==0: 
+        if (i+1)%10==0 and verbose: 
             print('Epoch: {} log likelihood of all traj: {}'.format(i,L), 
                   ', average per traj step: {}'.format(
-                  L/(trajectories.shape[0] * trajectories.shape[1])))
+                  L/(n_traj * traj_len)))
     return theta
 
 
-def main(t_expert=1e-2,
+def mceirl_run(t_expert=1e-2,
          t_irl=1e-2,
+         t_opt=1e-2,
          gamma=1,
-         h=10,
-         n_traj=200,
-         traj_len=10,
+         h=8,
+         n_traj=1000,
+         traj_len=8,
          learning_rate=0.01,
-         epochs=300):
+         epochs=350,
+         verbose=True):
     '''
     Demonstrates the usage of the implemented MaxCausalEnt IRL algorithm. 
     
@@ -160,18 +174,39 @@ def main(t_expert=1e-2,
     # Compute and print the stats of the generated expert trajectories.
     sa_visit_count, _ = compute_s_a_visitations(mdp, gamma, trajectories)
     log_likelihood = np.sum(sa_visit_count * (Q - V))
-    print('Generated {} traj of length {}'.format(n_traj, traj_len))
-    print('Log likelihood of all traj under the policy generated ', 
-          'from the true reward: {}, \n average per traj step: {}'.format(
-           log_likelihood, log_likelihood / (n_traj * traj_len)))
-    print('Average return per expert trajectory: {} \n'.format(
-            np.sum(np.sum(sa_visit_count, axis=1)*r_expert) / n_traj))
+    
+    if verbose:
+        print('Generated {} traj of length {}'.format(n_traj, traj_len))
+        
+        print('Log likelihood of all traj under the policy generated ', 
+              'from the true reward: {}, \n average per traj step: {}'.format(
+               log_likelihood, log_likelihood / (n_traj * traj_len)))
+        
+        print('Average return per expert trajectory: {} \n'.format(
+                np.sum(np.sum(sa_visit_count, axis=1)*r_expert) / n_traj))
 
     # Find a reward vector that maximizes the log likelihood of the generated 
     # expert trajectories.
-    theta = max_causal_ent_irl(mdp, feature_matrix, trajectories, gamma, h, 
-                               t_irl, epochs, learning_rate)
-    print('Final reward weights: ', theta)
+    theta = max_causal_ent_irl(
+            mdp,
+            feature_matrix,
+            trajectories,
+            gamma,
+            h,
+            t_irl,
+            epochs,
+            learning_rate,
+            verbose)
+    if verbose: print('Final reward weights: ', theta)
+    
 
+    R_expert = policy_return(mdp, policy_expert, gamma, timesteps=h, r=theta_expert)
+    
+    _, _, policy_opt_ = vi_boltzmann(mdp, gamma, theta, h, t_opt, use_mellowmax=True)
+    R_opt = policy_return(mdp, policy_opt_, gamma, timesteps=traj_len, r=theta_expert)
+    print(R_expert, R_opt)
+    
+    return (R_expert, R_opt)
+    
 if __name__ == "__main__":
-    main()
+    mceirl_run()
