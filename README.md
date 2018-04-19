@@ -4,6 +4,10 @@ Python implementation of Maximum Causal Entropy Inverse Reinforcement Learning f
 
 Main file: ```max_causal_ent_irl.py```.
 
+Dependencies: ```numpy```, ```gym-0.8.2```.
+
+## Algorithm notes
+
 The finite horizon version of the algorithm is consistent and works as it should by Ziebart (2010).
 
 The discounted infinite horizon version used in e.g Levine's Gaussian Process IRL is work in progress. Current TODOs:
