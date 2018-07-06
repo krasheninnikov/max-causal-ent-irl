@@ -17,8 +17,9 @@ class MDP(object):
     self.T : 3D numpy array
         The transition prob matrix of the MDP. p(s'|s,a) = self.T[s,a,s']
     '''
-    def __init__(self, env):
-        P, nS, nA, desc = MDP.env2mdp(env)
+    def __init__(self, env=None):
+        if env is not None:
+            P, nS, nA, desc = MDP.env2mdp(env)
         self.P = P # state transition and reward probabilities, explained below
         self.nS = nS # number of states
         self.nA = nA # number of actions
@@ -91,8 +92,7 @@ class MDPOneTimeR(MDP):
 
 
 class MDP_toy_irreversibility(MDP):
-        def __init__(self, env):
-            super().__init__(env)
+        def __init__(self):
 
             self.nS = 4 # number of states
             self.nA = 2
@@ -102,4 +102,8 @@ class MDP_toy_irreversibility(MDP):
             self.P.update({2:{0:[(1.0, 2, 1)], 1:[(1.0, 1, -.1)]}})
             self.P.update({3:{0:[(1.0, 3, 1)], 1:[(1.0, 3, 1)]}})
             self.T = self.get_transition_matrix()
-            self.s = self.env.reset()
+            self.reset()
+
+        def reset(self):
+            self.s = 0
+            return self.s
