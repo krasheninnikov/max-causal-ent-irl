@@ -92,18 +92,58 @@ class MDPOneTimeR(MDP):
 
 
 class MDP_toy_irreversibility(MDP):
-        def __init__(self):
+    def __init__(self):
 
-            self.nS = 4 # number of states
-            self.nA = 2
-            self.P = {}
-            self.P.update({0:{0:[(1.0, 1,-.1)], 1:[(1.0, 3, 1)]}})
-            self.P.update({1:{0:[(1.0, 2, 1)], 1:[(1.0, 0, 0)]}})
-            self.P.update({2:{0:[(1.0, 2, 1)], 1:[(1.0, 1, -.1)]}})
-            self.P.update({3:{0:[(1.0, 3, 1)], 1:[(1.0, 3, 1)]}})
-            self.T = self.get_transition_matrix()
-            self.reset()
+        self.nS = 4 # number of states
+        self.nA = 2
+        self.P = {}
+        self.P.update({0:{0:[(1.0, 1,-.1)], 1:[(1.0, 3, 1)]}})
+        self.P.update({1:{0:[(1.0, 2, 1)], 1:[(1.0, 0, 0)]}})
+        self.P.update({2:{0:[(1.0, 2, 1)], 1:[(1.0, 1, -.1)]}})
+        self.P.update({3:{0:[(1.0, 3, 1)], 1:[(1.0, 3, 1)]}})
+        self.T = self.get_transition_matrix()
+        self.reset()
 
-        def reset(self):
-            self.s = 0
-            return self.s
+    def reset(self):
+        self.s = 0
+        return self.s
+        
+        
+class MDP_chain(MDP):
+    def __init__(self):
+        self.nS = 8 # number of states
+        self.nA = 3
+        self.P = {}
+        self.P.update({0:{0:[(1.0, 0, 1)], 1:[(1.0, 7, 1)], 2:[(1.0, 1, 1)]}})
+        self.P.update({1:{0:[(1.0, 1, 1)], 1:[(1.0, 4, 1)], 2:[(1.0, 2, 1)]}})
+        self.P.update({2:{0:[(1.0, 2, 1)], 1:[(1.0, 5, 1)], 2:[(1.0, 3, 1)]}})
+        self.P.update({3:{0:[(1.0, 3, 1)], 1:[(1.0, 6, 1)], 2:[(1.0, 3, 1)]}})
+        self.P.update({4:{0:[(1.0, 4, 1)], 1:[(1.0, 1, 1)], 2:[(1.0, 4, 1)]}})
+        self.P.update({5:{0:[(1.0, 5, 1)], 1:[(1.0, 2, 1)], 2:[(1.0, 5, 1)]}})
+        self.P.update({6:{0:[(1.0, 6, 1)], 1:[(1.0, 3, 1)], 2:[(1.0, 6, 1)]}})
+        self.P.update({7:{0:[(1.0, 7, 1)], 1:[(1.0, 7, 1)], 2:[(1.0, 7, 1)]}})
+        self.T = self.get_transition_matrix()
+        self.reset()
+
+    def reset(self):
+        self.s = 0
+        return self.s
+
+class MDP_water(MDP):
+    def __init__(self):
+        self.nS = 7 # number of states
+        self.nA = 3
+        self.P = {}
+        self.P.update({0:{0:[(1.0, 0, 1)], 1:[(1.0, 1, 1)], 2:[(1.0, 3, 1)]}})
+        self.P.update({1:{0:[(1.0, 4, 1)], 1:[(1.0, 4, 1)], 2:[(1.0, 5, 1)]}})
+        self.P.update({2:{0:[(1.0, 2, 1)], 1:[(1.0, 4, 1)], 2:[(1.0, 6, 1)]}})
+        self.P.update({3:{0:[(1.0, 6, 1)], 1:[(1.0, 5, 1)], 2:[(1.0, 6, 1)]}})
+        self.P.update({4:{0:[(1.0, 4, 1)], 1:[(1.0, 4, 1)], 2:[(1.0, 5, 1)]}})
+        self.P.update({5:{0:[(1.0, 5, 1)], 1:[(1.0, 4, 1)], 2:[(1.0, 6, 1)]}})
+        self.P.update({6:{0:[(1.0, 6, 1)], 1:[(1.0, 5, 1)], 2:[(1.0, 6, 1)]}})
+        self.T = self.get_transition_matrix()
+        self.reset()
+
+    def reset(self):
+        self.s = 0
+        return self.s
