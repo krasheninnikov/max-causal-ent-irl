@@ -20,13 +20,14 @@ class MDP(object):
     def __init__(self, env=None):
         if env is not None:
             P, nS, nA, desc = MDP.env2mdp(env)
-        self.P = P # state transition and reward probabilities, explained below
-        self.nS = nS # number of states
-        self.nA = nA # number of actions
-        self.desc = desc # 2D array specifying what each grid cell means
-        self.env = env
-        self.T = self.get_transition_matrix()
-        self.s = self.env.reset()
+            self.env = env
+            self.s = self.env.reset()
+            self.P = P # state transition and reward probabilities, explained below
+            self.nS = nS # number of states
+            self.nA = nA # number of actions
+            self.desc = desc # 2D array specifying what each grid cell means
+            self.T = self.get_transition_matrix()
+
 
     def env2mdp(env):
         return ({s : {a : [tup[:3] for tup in tups]
@@ -107,8 +108,8 @@ class MDP_toy_irreversibility(MDP):
     def reset(self):
         self.s = 0
         return self.s
-        
-        
+
+
 class MDP_chain(MDP):
     def __init__(self):
         self.nS = 8 # number of states
