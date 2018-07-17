@@ -108,6 +108,22 @@ class VasesGrid(object):
                     # rotaton to up
                     agent_coord_new = (0, agent_coord[1], agent_coord[2])
 
+            # moving right
+            if action==1:
+                # no wall to the right
+                if agent_coord[2]!=state.agent_pos.shape[2]:
+                    # no desk to the right
+                    if self.spec.d_mask[agent_coord[1], agent_coord[2]+1]==0:
+                        # position on grid
+                        agent_coord_new = tuple(map(op.add, agent_coord, (0, 0, 1)))
+                        # rotation to the right
+                        agent_coord_new = (1, agent_coord_new[1], agent_coord_new[2])
+
+                # wall to the right
+                if agent_coord[1]==state.agent_pos.shape[1]:
+                    # rotaton to right
+                    agent_coord_new = (1, agent_coord[1], agent_coord[2])
+
             # moving down
             if action==2:
                 # no wall below
@@ -124,27 +140,13 @@ class VasesGrid(object):
                     # rotaton to down
                     agent_coord_new = (2, agent_coord[1], agent_coord[2])
 
-            # moving right
-            if action==1:
-                # no wall to the right
-                if agent_coord[2]!=state.agent_pos.shape[2]:
-                    # no desk to the right
-                    if self.spec.d_mask[agent_coord[1], agent_coord[2]+1]==0:
-                        # position on grid
-                        agent_coord_new = tuple(map(op.add, agent_coord, (0, 0, 1)))
-                        # rotation to the right
-                        agent_coord_new = (1, agent_coord_new[1], agent_coord_new[2])
 
-                # wall below
-                if agent_coord[1]==state.agent_pos.shape[1]:
-                    # rotaton to right
-                    agent_coord_new = (1, agent_coord[1], agent_coord[2])
 
             # moving left
             if action==3:
-                # no wall to the right
+                # no wall to the left
                 if agent_coord[2]!=0:
-                    # no desk to the right
+                    # no desk to the left
                     if self.spec.d_mask[agent_coord[1], agent_coord[2]-1]==0:
                         # position on grid
                         agent_coord_new = tuple(map(op.add, agent_coord, (0, 0, -1)))
@@ -153,7 +155,7 @@ class VasesGrid(object):
 
                 # wall below
                 if agent_coord[1]==state.agent_pos.shape[1]:
-                    # rotaton to right
+                    # rotaton to left
                     agent_coord_new = (3, agent_coord[1], agent_coord[2])
 
             # update agent_pos
