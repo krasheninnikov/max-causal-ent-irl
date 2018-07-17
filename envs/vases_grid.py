@@ -1,4 +1,5 @@
 import numpy as np
+import operator as op
 from scipy.special import comb
 from utils import unique_perm, zeros_with_ones
 
@@ -13,7 +14,7 @@ class VasesEnvSpec(object):
         self.t_mask = t_mask
 
 
-class VaseEnvState(object):
+class VasesEnvState(object):
     def __init__(self, d_pos, v_pos, bv_pos, agent_pos, t_pos, carrying):
         self.d_pos = d_pos
         self.v_pos = v_pos
@@ -30,7 +31,7 @@ class VasesGrid(object):
         self.spec = spec
         self.init_state = init_state
         self.enumerate_states()
-
+        self.step(init_state, 0)
 
     def enumerate_states(self):
         i = 0
@@ -79,12 +80,47 @@ class VasesGrid(object):
                             np.put(t_mask_pos, np.where(self.spec.t_mask.flatten()), t_pos)
                             t_mask_pos = t_mask_pos.reshape(self.spec.t_mask.shape)
 
-                            print(i); i+=1
+                            # print(i); i+=1
                             # TODO add the state to P; how to best store states?
 
 
     def step(self, state, action):
         'returns the next state s_prime given a state and an action'
+
+        agent_coord = np.where(state.agent_pos)
         # move up
         if action==0:
+            # no wall above
+            if agent_coord[1]!=0:
+                # no desk above
+                if self.spec.d_mask[agent_coord[1], agent_coord[2]]==0:
+                    # position on grid
+                    agent_coord_new = tuple(map(op.add, agent_coord, (0, -1, 0)))
+                    # rotation to up
+                    agent_coord_new = (1, agent_coord_new[1], agent_coord_new[2])
+
+            # wall above
+            if agent_coord[1]==0:
+                # rotaton to up
+                agent_coord_new = (1, agent_coord[1], agent_coord[2])
+
+            # update agent_pos
+            agent_pos_new = np.zeros_like(state.agent_pos)
+            agent_pos_new[agent_coord_new] = True
+            state.agent_pos = agent_pos_new
+
+            # carrying a vase
+            if state.carrying==1:
+                # update coord of the vase that was at agent_coord
+                state.v_pos[agent_coord[1], agent_coord[2]]=False
+                state.v_pos[agent_coord_new[1], agent_coord_new[2]]=True
+
+            if state.carrying==2:
+                # Update coord of the tablecloth that was at agent_coord
+                state.t_pos[agent_coord[1], agent_coord[2]]=False
+                state.t_pos[agent_coord_new[1], agent_coord_new[2]]=True
+
+            return state
+
+        if action==1:
             pass
