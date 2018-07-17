@@ -88,23 +88,73 @@ class VasesGrid(object):
         'returns the next state given a state and an action'
 
         agent_coord = np.where(state.agent_pos)
-        # move up
-        if action==0:
-            # no wall above
-            if agent_coord[1]!=0:
-                # no desk above
-                if self.spec.d_mask[agent_coord[1]-1, agent_coord[2]]==0:
-                    # position on grid
-                    print(agent_coord[1]-1, agent_coord[2])
+        # movement
+        if action in [0, 1, 2, 3]:
+            # move up
+            if action==0:
+                # no wall above
+                if agent_coord[1]!=0:
+                    # no desk above
+                    if self.spec.d_mask[agent_coord[1]-1, agent_coord[2]]==0:
+                        # position on grid
+                        print(agent_coord[1]-1, agent_coord[2])
 
-                    agent_coord_new = tuple(map(op.add, agent_coord, (0, -1, 0)))
-                    # rotation to up
-                    agent_coord_new = (1, agent_coord_new[1], agent_coord_new[2])
+                        agent_coord_new = tuple(map(op.add, agent_coord, (0, -1, 0)))
+                        # rotation to up
+                        agent_coord_new = (0, agent_coord_new[1], agent_coord_new[2])
 
-            # wall above
-            if agent_coord[1]==0:
-                # rotaton to up
-                agent_coord_new = (0, agent_coord[1], agent_coord[2])
+                # wall above
+                if agent_coord[1]==0:
+                    # rotaton to up
+                    agent_coord_new = (0, agent_coord[1], agent_coord[2])
+
+            # moving down
+            if action==2:
+                # no wall below
+                if agent_coord[1]!=state.agent_pos.shape[1]:
+                    # no desk below
+                    if self.spec.d_mask[agent_coord[1]+1, agent_coord[2]]==0:
+                        # position on grid
+                        agent_coord_new = tuple(map(op.add, agent_coord, (0, 1, 0)))
+                        # rotation to down
+                        agent_coord_new = (2, agent_coord_new[1], agent_coord_new[2])
+
+                # wall below
+                if agent_coord[1]==state.agent_pos.shape[1]:
+                    # rotaton to down
+                    agent_coord_new = (2, agent_coord[1], agent_coord[2])
+
+            # moving right
+            if action==1:
+                # no wall to the right
+                if agent_coord[2]!=state.agent_pos.shape[2]:
+                    # no desk to the right
+                    if self.spec.d_mask[agent_coord[1], agent_coord[2]+1]==0:
+                        # position on grid
+                        agent_coord_new = tuple(map(op.add, agent_coord, (0, 0, 1)))
+                        # rotation to the right
+                        agent_coord_new = (1, agent_coord_new[1], agent_coord_new[2])
+
+                # wall below
+                if agent_coord[1]==state.agent_pos.shape[1]:
+                    # rotaton to right
+                    agent_coord_new = (1, agent_coord[1], agent_coord[2])
+
+            # moving left
+            if action==3:
+                # no wall to the right
+                if agent_coord[2]!=0:
+                    # no desk to the right
+                    if self.spec.d_mask[agent_coord[1], agent_coord[2]-1]==0:
+                        # position on grid
+                        agent_coord_new = tuple(map(op.add, agent_coord, (0, 0, -1)))
+                        # rotation to left
+                        agent_coord_new = (3, agent_coord_new[1], agent_coord_new[2])
+
+                # wall below
+                if agent_coord[1]==state.agent_pos.shape[1]:
+                    # rotaton to right
+                    agent_coord_new = (3, agent_coord[1], agent_coord[2])
 
             # update agent_pos
             agent_pos_new = np.zeros_like(state.agent_pos)
@@ -122,36 +172,6 @@ class VasesGrid(object):
                 state.t_pos[agent_coord[1], agent_coord[2]]=False
                 state.t_pos[agent_coord_new[1], agent_coord_new[2]]=True
 
-            return state
-
-        # moving down
-        if action==2:
-            # no wall below
-            if agent_coord[1]!=state.agent_pos.shape[1]:
-                # no desk below
-                if self.spec.d_mask[agent_coord[1]+1, agent_coord[2]]==0:
-                    # position on grid
-                    agent_coord_new = tuple(map(op.add, agent_coord, (0, 1, 0)))
-                    # rotation to up
-                    agent_coord_new = (1, agent_coord_new[1], agent_coord_new[2])
-
-            # wall below
-            if agent_coord[1]==state.agent_pos.shape[1]:
-                # rotaton to down
-                agent_coord_new = (2, agent_coord[1], agent_coord[2])
-
-            # update agent_pos
-            agent_pos_new = np.zeros_like(state.agent_pos)
-            agent_pos_new[agent_coord_new] = True
-            state.agent_pos = agent_pos_new
-
-            # carrying a vase
-            if state.carrying==1:
-                # update coord of the vase that was at agent_coord
-                state.v_pos[agent_coord[1], agent_coord[2]]=False
-                state.v_pos[agent_coord_new[1], agent_coord_new[2]]=True
-
-            if state.carrying==2:
-                # Update coord of the tablecloth that was at agent_coord
-                state.t_pos[agent_coord[1], agent_coord[2]]=False
-                state.t_pos[agent_coord_new[1], agent_coord_new[2]]=True
+        # drop object
+        if action==5:
+            pass
