@@ -5,16 +5,19 @@ from utils import unique_perm, zeros_with_ones
 
 class VasesEnvSpec(object):
     def __init__(self, n_v, n_t, d_mask, v_mask, bv_mask, agent_mask, t_mask):
-        self.n_v = n_v
-        self.n_t = n_t
-        self.d_mask = d_mask
-        self.v_mask = v_mask
-        self.bv_mask = bv_mask
-        self.agent_mask = agent_mask
-        self.t_mask = t_mask
+        self.n_v = n_v # number of vases
+        self.n_t = n_t # number of tablecloths
+        self.d_mask = d_mask # desk location
+        self.v_mask = v_mask # places where vases can be
+        self.bv_mask = bv_mask # places where broken vases can be
+        self.agent_mask = agent_mask # places where agent can be
+        self.t_mask = t_mask # places where tablecloths can be
 
 
 class VasesEnvState(object):
+    '''
+    state of the environment; describes positions of all objects in the env.
+    '''
     def __init__(self, d_pos, v_pos, bv_pos, agent_pos, t_pos, carrying):
         self.d_pos = d_pos
         self.v_pos = v_pos
@@ -30,6 +33,8 @@ class VasesGrid(object):
     def __init__(self, spec, init_state):
         self.spec = spec
         self.init_state = init_state
+
+        # testing the functions below, they shouldn't be here in the final env
         self.enumerate_states()
         self.step(init_state, 0)
 
