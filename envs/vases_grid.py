@@ -86,6 +86,8 @@ class VasesGrid(object):
                             t_mask_pos = t_mask_pos.reshape(self.spec.t_mask.shape)
 
                             # print(i); i+=1
+                            # TODO enumerate over carrying object / object being
+                            # on the floor
                             # TODO add the state to P; how to best store states?
 
 
