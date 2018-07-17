@@ -85,7 +85,7 @@ class VasesGrid(object):
 
 
     def step(self, state, action):
-        'returns the next state s_prime given a state and an action'
+        'returns the next state given a state and an action'
 
         agent_coord = np.where(state.agent_pos)
         # move up
@@ -93,8 +93,10 @@ class VasesGrid(object):
             # no wall above
             if agent_coord[1]!=0:
                 # no desk above
-                if self.spec.d_mask[agent_coord[1], agent_coord[2]]==0:
+                if self.spec.d_mask[agent_coord[1]-1, agent_coord[2]]==0:
                     # position on grid
+                    print(agent_coord[1]-1, agent_coord[2])
+
                     agent_coord_new = tuple(map(op.add, agent_coord, (0, -1, 0)))
                     # rotation to up
                     agent_coord_new = (1, agent_coord_new[1], agent_coord_new[2])
@@ -102,7 +104,7 @@ class VasesGrid(object):
             # wall above
             if agent_coord[1]==0:
                 # rotaton to up
-                agent_coord_new = (1, agent_coord[1], agent_coord[2])
+                agent_coord_new = (0, agent_coord[1], agent_coord[2])
 
             # update agent_pos
             agent_pos_new = np.zeros_like(state.agent_pos)
@@ -122,5 +124,34 @@ class VasesGrid(object):
 
             return state
 
-        if action==1:
-            pass
+        # moving down
+        if action==2:
+            # no wall below
+            if agent_coord[1]!=state.agent_pos.shape[1]:
+                # no desk below
+                if self.spec.d_mask[agent_coord[1]+1, agent_coord[2]]==0:
+                    # position on grid
+                    agent_coord_new = tuple(map(op.add, agent_coord, (0, 1, 0)))
+                    # rotation to up
+                    agent_coord_new = (1, agent_coord_new[1], agent_coord_new[2])
+
+            # wall below
+            if agent_coord[1]==state.agent_pos.shape[1]:
+                # rotaton to down
+                agent_coord_new = (2, agent_coord[1], agent_coord[2])
+
+            # update agent_pos
+            agent_pos_new = np.zeros_like(state.agent_pos)
+            agent_pos_new[agent_coord_new] = True
+            state.agent_pos = agent_pos_new
+
+            # carrying a vase
+            if state.carrying==1:
+                # update coord of the vase that was at agent_coord
+                state.v_pos[agent_coord[1], agent_coord[2]]=False
+                state.v_pos[agent_coord_new[1], agent_coord_new[2]]=True
+
+            if state.carrying==2:
+                # Update coord of the tablecloth that was at agent_coord
+                state.t_pos[agent_coord[1], agent_coord[2]]=False
+                state.t_pos[agent_coord_new[1], agent_coord_new[2]]=True
