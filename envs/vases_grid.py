@@ -185,6 +185,8 @@ class VasesGrid(object):
                 state.t_pos[agent_coord[1], agent_coord[2]]=False
                 state.t_pos[agent_coord_new[1], agent_coord_new[2]]=True
 
+        #TODO Jordan -> Dmitrii Comment: I ended up sticking with lots of ifs rather than for loops bc consistency and no need to reatroactively change code that works, but it ended up being lots of nested ifs. I could declarte something like an array of tuples [(0, -1), (0, +1), (-1, 0), (+1, 0)] and iterate over that instead, but currently planning on sticking with this. 
+
         # pick/put object
         if action==4:
             # try to pick an object
@@ -326,6 +328,3 @@ class VasesGrid(object):
                     if state.carrying == 2 and state.t_mask[agent_coord[1], agent_coord[2] - 1] :
                         state.t_pos[agent_coord[1], agent_coord[2] - 1] = True
                         state.carrying = 0
-
-
-
