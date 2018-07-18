@@ -31,6 +31,16 @@ class VasesEnvState(object):
 
 
 def print_state(state):
+    '''
+    Renders the states. Each tile in the gridworld corresponds to a 2x2 cell in
+    the rendered state.
+    - Green tiles correspond to vases
+    - Red tiles correspond to broken vases
+    - Brown tiles correspond to tables
+    - Purple tiles correspond to tablecloths
+    - The arrow and its direction correspond to the agent and its rotation. The
+      color of the arrow corres to the object the agent is carrying.
+    '''
     n = state.d_pos.shape[0]
     m = state.d_pos.shape[1]
 
@@ -71,7 +81,14 @@ def print_state(state):
         for i in range(n):
             for j in range(m):
                 if state.agent_pos[rotation, i, j]==1:
-                    canvas[2*i+i+2, 2*j+j+2] = 6+rotation
+                    canvas[2*i+i+2, 2*j+j+1] = 6+rotation
+
+    black_color = '\033[0m'
+    agent_color = black_color
+    if state.carrying==1:
+        agent_color = '\033[92m'
+    if state.carrying==2:
+        agent_color = '\033[95m'
 
     for line in canvas:
         for char_num in line:
@@ -88,14 +105,15 @@ def print_state(state):
                 print('\033[95m█\033[0m', end='')
             elif char_num==5:
                 print('\033[91m█\033[0m', end='')
+
             elif char_num==6:
-                print('↑', end='')
+                print(agent_color+'↑'+black_color, end='')
             elif char_num==7:
-                print('→', end='')
+                print(agent_color+'→'+black_color, end='')
             elif char_num==8:
-                print('↓', end='')
+                print(agent_color+'↓'+black_color, end='')
             elif char_num==9:
-                print('←', end='')
+                print(agent_color+'←'+black_color, end='')
         print('')
 
 
