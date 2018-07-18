@@ -32,14 +32,16 @@ class VasesEnvState(object):
 
 def print_state(state):
     '''
-    Renders the states. Each tile in the gridworld corresponds to a 2x2 cell in
+    Renders the state. Each tile in the gridworld corresponds to a 2x2 cell in
     the rendered state.
     - Green tiles correspond to vases
     - Red tiles correspond to broken vases
     - Brown tiles correspond to tables
     - Purple tiles correspond to tablecloths
     - The arrow and its direction correspond to the agent and its rotation. The
-      color of the arrow corres to the object the agent is carrying.
+      color of the arrow corres to the object the agent is carrying. The agent is
+      rendered in the same subcell as tables are since the agent and the table
+      are never in the same cell.
     '''
     n = state.d_pos.shape[0]
     m = state.d_pos.shape[1]
@@ -197,10 +199,12 @@ class VasesGrid(object):
         agent_coord = np.where(state.agent_pos)
         # movement
         if action in [0, 1, 2, 3]:
+
+            # rotate to the correct position
+            agent_coord_new = (action, agent_coord[1], agent_coord[2])
+
             # move up
             if action==0:
-                # rotate to up
-                agent_coord_new = (0, agent_coord[1], agent_coord[2])
                 # no wall above
                 if agent_coord[1]!=0:
                     # no desk above
@@ -208,11 +212,8 @@ class VasesGrid(object):
                         # position on grid
                         agent_coord_new = tuple(map(op.add, agent_coord, (0, -1, 0)))
 
-
             # moving right
-            if action==1:
-                # rotate to the right
-                agent_coord_new = (1, agent_coord[1], agent_coord[2])
+            elif action==1:
                 # no wall to the right
                 if agent_coord[2]!=state.agent_pos.shape[2]:
                     # no desk to the right
@@ -220,12 +221,8 @@ class VasesGrid(object):
                         # position on grid
                         agent_coord_new = tuple(map(op.add, agent_coord, (0, 0, 1)))
 
-
-
             # moving down
-            if action==2:
-                # rotate to down
-                agent_coord_new = (2, agent_coord[1], agent_coord[2])
+            elif action==2:
                 # no wall below
                 if agent_coord[1]!=state.agent_pos.shape[1]:
                     # no desk below
@@ -233,18 +230,14 @@ class VasesGrid(object):
                         # position on grid
                         agent_coord_new = tuple(map(op.add, agent_coord, (0, 1, 0)))
 
-
             # moving left
-            if action==3:
-                # rotate to the left
-                agent_coord_new = (3, agent_coord[1], agent_coord[2])
+            elif action==3:
                 # no wall to the left
                 if agent_coord[2]!=0:
                     # no desk to the left
                     if self.spec.d_mask[agent_coord[1], agent_coord[2]-1]==0:
                         # position on grid
                         agent_coord_new = tuple(map(op.add, agent_coord, (0, 0, -1)))
-
 
             # update agent_pos
             agent_pos_new = np.zeros_like(state.agent_pos)
