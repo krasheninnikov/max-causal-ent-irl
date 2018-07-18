@@ -52,38 +52,38 @@ def print_state(state):
     for i in range(2, canvas.shape[0], 3):
         canvas[i, :] = 1
     for j in range(0, canvas.shape[1], 3):
-        canvas[:, j] = -1
+        canvas[:, j] = 2
 
     # desks
     for i in range(n):
         for j in range(m):
             if state.d_pos[i, j]==1:
-                canvas[2*i+i+1, 2*j+j+1] = 2
+                canvas[2*i+i+1, 2*j+j+1] = 3
 
     # vases
     for i in range(n):
         for j in range(m):
             if state.v_pos[i, j]==1:
-                canvas[2*i+i, 2*j+j+2] = 3
+                canvas[2*i+i, 2*j+j+2] = 4
 
     # tablecloths
     for i in range(n):
         for j in range(m):
             if state.v_pos[i, j]==1:
-                canvas[2*i+i, 2*j+j+1] = 4
+                canvas[2*i+i, 2*j+j+1] = 5
 
     # broken vases
     for i in range(n):
         for j in range(m):
             if state.bv_pos[i, j]==1:
-                canvas[2*i+i, 2*j+j] = 5
+                canvas[2*i+i, 2*j+j] = 6
 
     # agent
     for rotation in range(4):
         for i in range(n):
             for j in range(m):
                 if state.a_pos[rotation, i, j]==1:
-                    canvas[2*i+i+1, 2*j+j+1] = 6+rotation
+                    canvas[2*i+i+1, 2*j+j+1] = 7+rotation
 
     black_color = '\033[0m'
     agent_color = black_color
@@ -96,26 +96,26 @@ def print_state(state):
         for char_num in line:
             if char_num==0:
                 print('\u2003', end='')
-            elif char_num==-1:
-                print('|', end='')
             elif char_num==1:
                 print('\u2013', end='')
             elif char_num==2:
-                print('\033[93m█\033[0m', end='')
+                print('|', end='')
             elif char_num==3:
-                print('\033[92m█\033[0m' , end='')
+                print('\033[93m█\033[0m', end='')
             elif char_num==4:
-                print('\033[95m█\033[0m', end='')
+                print('\033[92m█\033[0m' , end='')
             elif char_num==5:
+                print('\033[95m█\033[0m', end='')
+            elif char_num==6:
                 print('\033[91m█\033[0m', end='')
 
-            elif char_num==6:
-                print(agent_color+'↑'+black_color, end='')
             elif char_num==7:
-                print(agent_color+'→'+black_color, end='')
+                print(agent_color+'↑'+black_color, end='')
             elif char_num==8:
-                print(agent_color+'↓'+black_color, end='')
+                print(agent_color+'→'+black_color, end='')
             elif char_num==9:
+                print(agent_color+'↓'+black_color, end='')
+            elif char_num==10:
                 print(agent_color+'←'+black_color, end='')
         print('')
 
@@ -131,9 +131,6 @@ class VasesGrid(object):
         self.step(self.s, 0)
 
     def enumerate_states(self):
-        # TODO Jordan -> Dmitrii Comment: Ah, ok, I misunderstood what you were
-        # saying in the call about coordinate lists vs. masks. Masks still seems
-        # like the correct choice, though, since (size)^vases < prod i=0->vases (size-i) < (size choose vases)
         i = 0
         n_v = self.spec.n_v
         n_t = _v = self.spec.n_t
@@ -239,6 +236,8 @@ class VasesGrid(object):
             a_pos_new[a_coord_new] = True
             state.a_pos = a_pos_new
 
+            # TODO depending on the way we choose to do carrying, the 8 lines
+            # below may have to be removed
             # carrying an object
             if state.carrying==1:
                 # update position of the vase that was at a_coord
@@ -248,12 +247,6 @@ class VasesGrid(object):
                 # update position of the tablecloth that was at a_coord
                 state.t_pos[a_coord[1], a_coord[2]]=False
                 state.t_pos[a_coord_new[1], a_coord_new[2]]=True
-
-        #TODO Jordan -> Dmitrii Comment: I ended up sticking with lots of ifs
-        # rather than for loops bc consistency and no need to reatroactively
-        # change code that works, but it ended up being lots of nested ifs.
-        # I could declarte something like an array of tuples [(0, -1), (0, +1), (-1, 0), (+1, 0)]
-        # and iterate over that instead, but currently planning on sticking with this.
 
         # pick/put object
         if action==4:
