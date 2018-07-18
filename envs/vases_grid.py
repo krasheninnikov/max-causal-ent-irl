@@ -193,6 +193,8 @@ class VasesGrid(object):
                             # on the floor
                             # TODO add the state to P; how to best store states?
 
+    def reset(self):
+        self.s = copy(self.init_state)
 
     def step(self, state, action):
         d_mask = self.spec.d_mask
@@ -201,12 +203,9 @@ class VasesGrid(object):
 
         'returns the next state given a state and an action'
         a_coord = np.where(state.a_pos)
+        a_coord_new = copy(a_coord)
         # movement
         if action in [0, 1, 2, 3]:
-
-            # rotate to the correct position
-            a_coord_new = (action, a_coord[1], a_coord[2])
-
             # move up
             if action==0:
                 # no wall and no desk above
@@ -230,6 +229,9 @@ class VasesGrid(object):
                 # no wall and no desk to the left
                 if a_coord[2]!=0 and d_mask[a_coord[1], a_coord[2]-1]==0:
                     a_coord_new = tuple(map(op.add, a_coord, (0, 0, -1)))
+
+            # rotate to the correct position
+            a_coord_new = (action, a_coord_new[1], a_coord_new[2])
 
             # update a_pos
             a_pos_new = np.zeros_like(state.a_pos)
