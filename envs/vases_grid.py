@@ -46,44 +46,44 @@ def print_state(state):
     n = state.d_pos.shape[0]
     m = state.d_pos.shape[1]
 
-    canvas = np.zeros(tuple([3*n+1, 3*m+1]), dtype='int8')
+    canvas = np.zeros(tuple([3*n-1, 3*m+1]), dtype='int8')
 
     # cell borders
-    for i in range(0, canvas.shape[0], 3):
+    for i in range(2, canvas.shape[0], 3):
         canvas[i, :] = 1
     for j in range(0, canvas.shape[1], 3):
-        canvas[:, j] = 1
+        canvas[:, j] = -1
 
     # desks
     for i in range(n):
         for j in range(m):
             if state.d_pos[i, j]==1:
-                canvas[2*i+i+2, 2*j+j+1] = 2
+                canvas[2*i+i+1, 2*j+j+1] = 2
 
     # vases
     for i in range(n):
         for j in range(m):
             if state.v_pos[i, j]==1:
-                canvas[2*i+i+1, 2*j+j+2] = 3
+                canvas[2*i+i, 2*j+j+2] = 3
 
     # tablecloths
     for i in range(n):
         for j in range(m):
             if state.v_pos[i, j]==1:
-                canvas[2*i+i+1, 2*j+j+1] = 4
+                canvas[2*i+i, 2*j+j+1] = 4
 
     # broken vases
     for i in range(n):
         for j in range(m):
             if state.bv_pos[i, j]==1:
-                canvas[2*i+i+1, 2*j+j] = 5
+                canvas[2*i+i, 2*j+j] = 5
 
     # agent
     for rotation in range(4):
         for i in range(n):
             for j in range(m):
                 if state.a_pos[rotation, i, j]==1:
-                    canvas[2*i+i+2, 2*j+j+1] = 6+rotation
+                    canvas[2*i+i+1, 2*j+j+1] = 6+rotation
 
     black_color = '\033[0m'
     agent_color = black_color
@@ -96,9 +96,10 @@ def print_state(state):
         for char_num in line:
             if char_num==0:
                 print('\u2003', end='')
-
+            elif char_num==-1:
+                print('|', end='')
             elif char_num==1:
-                print('#', end='')
+                print('\u2013', end='')
             elif char_num==2:
                 print('\033[93m█\033[0m', end='')
             elif char_num==3:
