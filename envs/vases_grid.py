@@ -1,7 +1,7 @@
 import numpy as np
 import operator as op
 from scipy.special import comb
-from copy import copy
+from copy import copy, deepcopy
 from utils import unique_perm, zeros_with_ones
 
 class VasesEnvSpec(object):
@@ -76,7 +76,7 @@ def print_state(state):
     for i in range(n):
         for j in range(m):
             if state.bv_pos[i, j]==1:
-                canvas[2*i+i, 2*j+j] = 6
+                canvas[2*i+i+1, 2*j+j+2] = 6
 
     # agent
     for rotation in range(4):
@@ -123,8 +123,8 @@ def print_state(state):
 class VasesGrid(object):
     def __init__(self, spec, init_state):
         self.spec = spec
-        self.init_state = copy(init_state)
-        self.s = copy(init_state)
+        self.init_state = deepcopy(init_state)
+        self.s = deepcopy(init_state)
 
         # testing the functions below, they shouldn't be here in the final env
         self.enumerate_states()
@@ -185,7 +185,7 @@ class VasesGrid(object):
                             # TODO add the state to P; how to best store states?
 
     def reset(self):
-        self.s = copy(self.init_state)
+        self.s = deepcopy(self.init_state)
 
     def step(self, state, action):
         d_mask = self.spec.d_mask
@@ -206,14 +206,16 @@ class VasesGrid(object):
             # moving right
             elif action==1:
                 # no wall and no desk to the right
-                if a_coord[2]!=m and d_mask[a_coord[1], a_coord[2]+1]==0:
-                    a_coord_new = tuple(map(op.add, a_coord, (0, 0, 1)))
+                if a_coord[2]!=m-1:
+                    if d_mask[a_coord[1], a_coord[2]+1]==0:
+                        a_coord_new = tuple(map(op.add, a_coord, (0, 0, 1)))
 
             # moving down
             elif action==2:
                 # no wall and no desk below
-                if a_coord[1]!=n and d_mask[a_coord[1]+1, a_coord[2]]==0:
-                    a_coord_new = tuple(map(op.add, a_coord, (0, 1, 0)))
+                if a_coord[1]!=n-1:
+                    if d_mask[a_coord[1]+1, a_coord[2]]==0:
+                        a_coord_new = tuple(map(op.add, a_coord, (0, 1, 0)))
 
             # moving left
             elif action==3:
@@ -229,14 +231,14 @@ class VasesGrid(object):
             a_pos_new[a_coord_new] = True
             state.a_pos = a_pos_new
 
-            if state.carrying[0] == 1:
-                # update position of the vase that was at a_coord
-                state.v_pos[a_coord[1], a_coord[2]]=False
-                state.v_pos[a_coord_new[1], a_coord_new[2]]=True
-            if state.carrying[1] == 1:
-                # update position of the tablecloth that was at a_coord
-                state.t_pos[a_coord[1], a_coord[2]]=False
-                state.t_pos[a_coord_new[1], a_coord_new[2]]=True
+            # if state.carrying[0] == 1:
+            #     # update position of the vase that was at a_coord
+            #     state.v_pos[a_coord[1], a_coord[2]]=False
+            #     state.v_pos[a_coord_new[1], a_coord_new[2]]=True
+            # if state.carrying[1] == 1:
+            #     # update position of the tablecloth that was at a_coord
+            #     state.t_pos[a_coord[1], a_coord[2]]=False
+            #     state.t_pos[a_coord_new[1], a_coord_new[2]]=True
 
         # pick/put object
         if action==4:
@@ -248,13 +250,13 @@ class VasesGrid(object):
                     # vase above
                     if state.v_pos[a_coord[1] - 1, a_coord[2]] == True:
                         state.v_pos[a_coord[1] - 1, a_coord[2]] = False
-                        state.v_pos[a_coord[1], a_coord[2]] = True
+                        #state.v_pos[a_coord[1], a_coord[2]] = True
                         state.carrying[0] = 1
 
                     # tablecloth above
                     elif state.t_pos[a_coord[1] - 1, a_coord[2]] == True:
                         state.t_pos[a_coord[1] - 1, a_coord[2]] = False
-                        state.t_pos[a_coord[1], a_coord[2]] = True
+                        #state.t_pos[a_coord[1], a_coord[2]] = True
                         state.carrying[1] = 1
 
                 # picking right
@@ -263,13 +265,13 @@ class VasesGrid(object):
                     # vase right
                     if state.v_pos[a_coord[1] , a_coord[2] + 1] == True:
                         state.v_pos[a_coord[1] , a_coord[2] + 1] = False
-                        state.v_pos[a_coord[1], a_coord[2]] = True
+                        #state.v_pos[a_coord[1], a_coord[2]] = True
                         state.carrying[0] = 1
 
                     # tablecloth right
                     elif state.t_pos[a_coord[1], a_coord[2] + 1] == True:
                         state.t_pos[a_coord[1], a_coord[2] + 1] = False
-                        state.t_pos[a_coord[1], a_coord[2]] = True
+                        #state.t_pos[a_coord[1], a_coord[2]] = True
                         state.carrying[1] = 1
 
                 # picking down
@@ -277,14 +279,14 @@ class VasesGrid(object):
 
                     # vase down
                     if state.v_pos[a_coord[1] + 1, a_coord[2]] == True:
-                        state.v_pos[a_coord[1] + 1, a_coord[2]] = False
+                        #state.v_pos[a_coord[1] + 1, a_coord[2]] = False
                         state.v_pos[a_coord[1], a_coord[2]] = True
                         state.carrying[0] = 1
 
                     # tablecloth down
                     elif state.t_pos[a_coord[1] + 1, a_coord[2]] == True:
                         state.t_pos[a_coord[1] + 1, a_coord[2]] = False
-                        state.t_pos[a_coord[1], a_coord[2]] = True
+                        #state.t_pos[a_coord[1], a_coord[2]] = True
                         state.carrying[1] = 1
 
                 # picking left
@@ -293,13 +295,13 @@ class VasesGrid(object):
                     # vase left
                     if state.v_pos[a_coord[1], a_coord[2] - 1] == True:
                         state.v_pos[a_coord[1], a_coord[2] - 1] = False
-                        state.v_pos[a_coord[1], a_coord[2]] = True
+                        #state.v_pos[a_coord[1], a_coord[2]] = True
                         state.carrying[0] = 1
 
                     # tablecloth left
                     elif state.t_pos[a_coord[1], a_coord[2] - 1] == True:
                         state.t_pos[a_coord[1], a_coord[2] - 1] = False
-                        state.t_pos[a_coord[1], a_coord[2]] = True
+                        #state.t_pos[a_coord[1], a_coord[2]] = True
                         state.carrying[1] = 1
 
             # try to put an object
@@ -324,7 +326,7 @@ class VasesGrid(object):
                             state.carrying[0] = 0
 
                     # tablecloth above
-                    if state.carrying[1] == 1 and state.t_mask[a_coord[1] - 1, a_coord[2]]:
+                    if state.carrying[1] == 1 and self.spec.t_mask[a_coord[1] - 1, a_coord[2]]:
                         state.t_pos[a_coord[1], a_coord[2]] = False
                         state.t_pos[a_coord[1] - 1, a_coord[2]] = True
                         state.carrying[1] = 0
@@ -349,7 +351,7 @@ class VasesGrid(object):
                             state.carrying[0] = 0
 
                     # tablecloth right
-                    if state.carrying[1] == 1 and state.t_mask[a_coord[1], a_coord[2] + 1] :
+                    if state.carrying[1] == 1 and self.spec.t_mask[a_coord[1], a_coord[2] + 1] :
                         state.t_pos[a_coord[1], a_coord[2]] = False
                         state.t_pos[a_coord[1], a_coord[2] + 1] = True
                         state.carrying[1] = 0
@@ -374,7 +376,7 @@ class VasesGrid(object):
                             state.carrying[0] = 0
 
                     # tablecloth down
-                    if state.carrying[1] == 1 and state.t_mask[a_coord[1] + 1, a_coord[2]] :
+                    if state.carrying[1] == 1 and self.spec.t_mask[a_coord[1] + 1, a_coord[2]] :
                         state.t_pos[a_coord[1], a_coord[2]] = False
                         state.t_pos[a_coord[1] + 1, a_coord[2]] = True
                         state.carrying[1] = 0
@@ -399,7 +401,7 @@ class VasesGrid(object):
                             state.carrying[0] = 0
 
                     # tablecloth left
-                    if state.carrying[1] == 1 and state.t_mask[a_coord[1], a_coord[2] - 1] :
+                    if state.carrying[1] == 1 and self.spec.t_mask[a_coord[1], a_coord[2] - 1] :
                         state.t_pos[a_coord[1], a_coord[2]] = False
                         state.t_pos[a_coord[1], a_coord[2] - 1] = True
                         state.carrying[1] = 0
