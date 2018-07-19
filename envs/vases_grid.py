@@ -188,40 +188,26 @@ class VasesGrid(object):
         self.s = deepcopy(self.init_state)
 
     def step(self, state, action):
+        'returns the next state given a state and an action'
+
         d_mask = self.spec.d_mask
         n = d_mask.shape[0]
         m = d_mask.shape[1]
 
-        'returns the next state given a state and an action'
         a_coord = np.where(state.a_pos)
         a_coord_new = copy(a_coord)
+
+        shift_coord_array = [[-1, 0], [0, 1], [1, 0], [0, -1]]
+
         # movement
         if action in [0, 1, 2, 3]:
-            # move up
-            if action==0:
-                # no wall and no desk above
-                if a_coord[1]!=0 and d_mask[a_coord[1]-1, a_coord[2]]==0:
-                    a_coord_new = tuple(map(op.add, a_coord, (0, -1, 0)))
+            move_coord = shift_coord_array[action]
+            move_coord = (move_coord[0] + a_coord[1], move_coord[1] + a_coord[2])
 
-            # moving right
-            elif action==1:
-                # no wall and no desk to the right
-                if a_coord[2]!=m-1:
-                    if d_mask[a_coord[1], a_coord[2]+1]==0:
-                        a_coord_new = tuple(map(op.add, a_coord, (0, 0, 1)))
-
-            # moving down
-            elif action==2:
-                # no wall and no desk below
-                if a_coord[1]!=n-1:
-                    if d_mask[a_coord[1]+1, a_coord[2]]==0:
-                        a_coord_new = tuple(map(op.add, a_coord, (0, 1, 0)))
-
-            # moving left
-            elif action==3:
-                # no wall and no desk to the left
-                if a_coord[2]!=0 and d_mask[a_coord[1], a_coord[2]-1]==0:
-                    a_coord_new = tuple(map(op.add, a_coord, (0, 0, -1)))
+            # move_coord is not in the wall, and no desk at move_coord
+            if move_coord[0]>=0 and move_coord[0]<n and move_coord[1]>=0 and move_coord[1]<m:
+                if d_mask[move_coord]==False:
+                    a_coord_new = (a_coord[0], move_coord[0], move_coord[1])
 
             # rotate to the correct position
             a_coord_new = (action, a_coord_new[1], a_coord_new[2])
@@ -231,21 +217,12 @@ class VasesGrid(object):
             a_pos_new[a_coord_new] = True
             state.a_pos = a_pos_new
 
-        if action==4:
-            if a_coord[0] == 0:
-                obj_coord = [-1, 0]
-            if a_coord[0] == 1:
-                obj_coord = [0, 1]
-            if a_coord[0] == 2:
-                obj_coord = [1, 0]
-            if a_coord[0] == 3:
-                obj_coord = [0, -1]
+        elif action==4:
+            obj_coord = shift_coord_array[int(a_coord[0])]
+            obj_coord = (obj_coord[0] + a_coord[1], obj_coord[1] + a_coord[2])
 
-            obj_coord = (obj_coord[0]+a_coord[1], obj_coord[1]+a_coord[2])
-
-            # obj_coord is not in the wall
+            # no wall at obj_coord
             if obj_coord[0]>=0 and obj_coord[0]<n and obj_coord[1]>=0 and obj_coord[1]<m:
-
                 # Try to pick up an object
                 if state.carrying[0] + state.carrying[1] == 0:
                     # vase
