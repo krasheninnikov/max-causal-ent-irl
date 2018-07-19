@@ -26,7 +26,7 @@ class VasesEnvState(object):
         self.a_pos = a_pos
         self.t_pos = t_pos
         # Variable determining whether the agent is carrying something:
-        # 0 -> nothing, 1 -> vase, 2 -> tablecloth
+        # [0, 0] -> nothing, [1, 0] -> vase, [0, 1] -> tablecloth
         self.carrying = carrying
 
 
@@ -69,7 +69,7 @@ def print_state(state):
     # tablecloths
     for i in range(n):
         for j in range(m):
-            if state.v_pos[i, j]==1:
+            if state.t_pos[i, j]==1:
                 canvas[2*i+i, 2*j+j+1] = 5
 
     # broken vases
@@ -87,9 +87,9 @@ def print_state(state):
 
     black_color = '\033[0m'
     agent_color = black_color
-    if state.carrying==1:
+    if state.carrying[0] == 1:
         agent_color = '\033[92m'
-    if state.carrying==2:
+    if state.carrying[1] == 1:
         agent_color = '\033[95m'
 
     for line in canvas:
@@ -163,9 +163,6 @@ class VasesGrid(object):
                     v_mask_pos = v_mask_pos.reshape(self.spec.v_mask.shape)
 
                     # Possible broken vase positions
-                    # TODO Jordan -> Dmitrii Comment: Can we just keep track of
-                    # the number broken vases instead? Less states, and since we
-                    # can't pick them up anymore, I don't think the position matters much.
 
                     for bv_pos in unique_perm(zeros_with_ones(n_bv_pos, n_bv)):
                         bv_mask_pos = np.zeros_like(self.spec.bv_mask.flatten())
@@ -176,10 +173,6 @@ class VasesGrid(object):
                         # this is only reflected in the step function since it's
                         # possible for an agent carrying a vase to step on a tile
                         # that contains a dropped tablecloth
-
-                        # TODO Jordan -> Dmitrii Comment: Do we want it to be possible
-                        # for the agent to step on a broken vase? I'd lean on yes just
-                        # because it seems easier to deal with.
 
                         for t_pos in unique_perm(zeros_with_ones(n_t_pos, n_t)):
                             t_mask_pos = np.zeros_like(self.spec.t_mask.flatten())
@@ -236,14 +229,11 @@ class VasesGrid(object):
             a_pos_new[a_coord_new] = True
             state.a_pos = a_pos_new
 
-            # TODO depending on the way we choose to do carrying, the 8 lines
-            # below may have to be removed
-            # carrying an object
-            if state.carrying==1:
+            if state.carrying[0] == 1:
                 # update position of the vase that was at a_coord
                 state.v_pos[a_coord[1], a_coord[2]]=False
                 state.v_pos[a_coord_new[1], a_coord_new[2]]=True
-            if state.carrying==2:
+            if state.carrying[1] == 1:
                 # update position of the tablecloth that was at a_coord
                 state.t_pos[a_coord[1], a_coord[2]]=False
                 state.t_pos[a_coord_new[1], a_coord_new[2]]=True
@@ -251,19 +241,21 @@ class VasesGrid(object):
         # pick/put object
         if action==4:
             # try to pick an object
-            if state.carrying  == 0:
+            if state.carrying[0] + state.carrying[1] == 0:
                 # picking above
                 if a_coord[0] == 0:
 
                     # vase above
                     if state.v_pos[a_coord[1] - 1, a_coord[2]] == True:
                         state.v_pos[a_coord[1] - 1, a_coord[2]] = False
-                        state.carrying = 1
+                        state.v_pos[a_coord[1], a_coord[2]] = True
+                        state.carrying[0] = 1
 
                     # tablecloth above
-                    if state.t_pos[a_coord[1] - 1, a_coord[2]] == True:
+                    elif state.t_pos[a_coord[1] - 1, a_coord[2]] == True:
                         state.t_pos[a_coord[1] - 1, a_coord[2]] = False
-                        state.carrying = 2
+                        state.t_pos[a_coord[1], a_coord[2]] = True
+                        state.carrying[1] = 1
 
                 # picking right
                 if a_coord[0] == 1:
@@ -271,12 +263,14 @@ class VasesGrid(object):
                     # vase right
                     if state.v_pos[a_coord[1] , a_coord[2] + 1] == True:
                         state.v_pos[a_coord[1] , a_coord[2] + 1] = False
-                        state.carrying = 1
+                        state.v_pos[a_coord[1], a_coord[2]] = True
+                        state.carrying[0] = 1
 
                     # tablecloth right
-                    if state.t_pos[a_coord[1], a_coord[2] + 1] == True:
+                    elif state.t_pos[a_coord[1], a_coord[2] + 1] == True:
                         state.t_pos[a_coord[1], a_coord[2] + 1] = False
-                        state.carrying = 2
+                        state.t_pos[a_coord[1], a_coord[2]] = True
+                        state.carrying[1] = 1
 
                 # picking down
                 if a_coord[0] == 2:
@@ -284,12 +278,14 @@ class VasesGrid(object):
                     # vase down
                     if state.v_pos[a_coord[1] + 1, a_coord[2]] == True:
                         state.v_pos[a_coord[1] + 1, a_coord[2]] = False
-                        state.carrying = 1
+                        state.v_pos[a_coord[1], a_coord[2]] = True
+                        state.carrying[0] = 1
 
                     # tablecloth down
-                    if state.t_pos[a_coord[1] + 1, a_coord[2]] == True:
+                    elif state.t_pos[a_coord[1] + 1, a_coord[2]] == True:
                         state.t_pos[a_coord[1] + 1, a_coord[2]] = False
-                        state.carrying = 2
+                        state.t_pos[a_coord[1], a_coord[2]] = True
+                        state.carrying[1] = 1
 
                 # picking left
                 if a_coord[0] == 3:
@@ -297,12 +293,14 @@ class VasesGrid(object):
                     # vase left
                     if state.v_pos[a_coord[1], a_coord[2] - 1] == True:
                         state.v_pos[a_coord[1], a_coord[2] - 1] = False
-                        state.carrying = 1
+                        state.v_pos[a_coord[1], a_coord[2]] = True
+                        state.carrying[0] = 1
 
                     # tablecloth left
-                    if state.t_pos[a_coord[1], a_coord[2] - 1] == True:
+                    elif state.t_pos[a_coord[1], a_coord[2] - 1] == True:
                         state.t_pos[a_coord[1], a_coord[2] - 1] = False
-                        state.carrying = 2
+                        state.t_pos[a_coord[1], a_coord[2]] = True
+                        state.carrying[1] = 1
 
             # try to put an object
             else:
@@ -310,83 +308,99 @@ class VasesGrid(object):
                 if a_coord[0] == 0:
 
                     # vase above
-                    if state.carrying == 1:
+                    if state.carrying[0] == 1:
+
+                        # putting vase
+                        state.v_pos[a_coord[1], a_coord[2]] = False
 
                         # vase doesn't break
-                        if state.v_mask[a_coord[1] - 1, a_coord[2]]:
+                        if self.spec.v_mask[a_coord[1] - 1, a_coord[2]]:
                             state.v_pos[a_coord[1] - 1, a_coord[2]] = True
-                            state.carrying = 0
+                            state.carrying[0] = 0
 
                         # vase breaks
-                        elif state.bv_mask[a_coord[1] - 1, a_coord[2]]:
+                        elif self.spec.bv_mask[a_coord[1] - 1, a_coord[2]]:
                             state.bv_pos[a_coord[1] - 1, a_coord[2]] = True
-                            state.carrying = 0
+                            state.carrying[0] = 0
 
                     # tablecloth above
-                    if state.carrying == 2 and state.t_mask[a_coord[1] - 1, a_coord[2]]:
+                    if state.carrying[1] == 1 and state.t_mask[a_coord[1] - 1, a_coord[2]]:
+                        state.t_pos[a_coord[1], a_coord[2]] = False
                         state.t_pos[a_coord[1] - 1, a_coord[2]] = True
-                        state.carrying = 0
+                        state.carrying[1] = 0
 
                 # putting right
                 if a_coord[0] == 1:
 
                     # vase right
-                    if state.carrying == 1:
+                    if state.carrying[0] == 1:
+
+                        # putting vase
+                        state.v_pos[a_coord[1], a_coord[2]] = False
 
                          # vase doesn't break
-                        if state.v_mask[a_coord[1], a_coord[2] + 1]:
+                        if self.spec.v_mask[a_coord[1], a_coord[2] + 1]:
                             state.v_pos[a_coord[1], a_coord[2] + 1] = True
-                            state.carrying = 0
+                            state.carrying[0] = 0
 
                         # vase breaks
-                        elif state.bv_mask[a_coord[1], a_coord[2] + 1]:
+                        elif self.spec.bv_mask[a_coord[1], a_coord[2] + 1]:
                             state.bv_pos[a_coord[1], a_coord[2] + 1] = True
-                            state.carrying = 0
+                            state.carrying[0] = 0
 
                     # tablecloth right
-                    if state.carrying == 2 and state.t_mask[a_coord[1], a_coord[2] + 1] :
+                    if state.carrying[1] == 1 and state.t_mask[a_coord[1], a_coord[2] + 1] :
+                        state.t_pos[a_coord[1], a_coord[2]] = False
                         state.t_pos[a_coord[1], a_coord[2] + 1] = True
-                        state.carrying = 0
+                        state.carrying[1] = 0
 
                 # putting down
                 if a_coord[0] == 2:
 
                     # vase down
-                    if state.carrying == 1:
+                    if state.carrying[0] == 1:
+
+                        # putting vase
+                        state.v_pos[a_coord[1], a_coord[2]] = False
 
                          # vase doesn't break
-                        if state.v_mask[a_coord[1] + 1, a_coord[2]]:
+                        if self.spec.v_mask[a_coord[1] + 1, a_coord[2]]:
                             state.v_pos[a_coord[1] + 1, a_coord[2]] = True
-                            state.carrying = 0
+                            state.carrying[0] = 0
 
                         # vase breaks
-                        elif state.bv_mask[a_coord[1] + 1, a_coord[2]]:
+                        elif self.spec.bv_mask[a_coord[1] + 1, a_coord[2]]:
                             state.bv_pos[a_coord[1] + 1, a_coord[2]] = True
-                            state.carrying = 0
+                            state.carrying[0] = 0
 
                     # tablecloth down
-                    if state.carrying == 2 and state.t_mask[a_coord[1] + 1, a_coord[2]] :
+                    if state.carrying[1] == 1 and state.t_mask[a_coord[1] + 1, a_coord[2]] :
+                        state.t_pos[a_coord[1], a_coord[2]] = False
                         state.t_pos[a_coord[1] + 1, a_coord[2]] = True
-                        state.carrying = 0
+                        state.carrying[1] = 0
 
                 # putting left
                 if a_coord[0] == 3:
 
                     # vase left
-                    if state.carrying == 1:
+                    if state.carrying[0] == 1:
+
+                        # putting vase
+                        state.v_pos[a_coord[1], a_coord[2]] = False
 
                          # vase doesn't break
-                        if state.v_mask[a_coord[1], a_coord[2] - 1]:
+                        if self.spec.v_mask[a_coord[1], a_coord[2] - 1]:
                             state.v_pos[a_coord[1], a_coord[2] - 1] = True
-                            state.carrying = 0
+                            state.carrying[0] = 0
 
                         # vase breaks
-                        elif state.bv_mask[a_coord[1], a_coord[2] - 1]:
+                        elif self.spec.bv_mask[a_coord[1], a_coord[2] - 1]:
                             state.bv_pos[a_coord[1], a_coord[2] - 1] = True
-                            state.carrying = 0
+                            state.carrying[0] = 0
 
                     # tablecloth left
-                    if state.carrying == 2 and state.t_mask[a_coord[1], a_coord[2] - 1] :
+                    if state.carrying[1] == 1 and state.t_mask[a_coord[1], a_coord[2] - 1] :
+                        state.t_pos[a_coord[1], a_coord[2]] = False
                         state.t_pos[a_coord[1], a_coord[2] - 1] = True
-                        state.carrying = 0
+                        state.carrying[1] = 0
         return state
