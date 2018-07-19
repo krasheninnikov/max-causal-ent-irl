@@ -101,13 +101,13 @@ def print_state(state):
             elif char_num==2:
                 print('|', end='')
             elif char_num==3:
-                print('\033[93m█\033[0m', end='')
+                print('\033[93m█'+black_color, end='')
             elif char_num==4:
-                print('\033[92m█\033[0m' , end='')
+                print('\033[92m█'+black_color , end='')
             elif char_num==5:
-                print('\033[95m█\033[0m', end='')
+                print('\033[95m█'+black_color, end='')
             elif char_num==6:
-                print('\033[91m█\033[0m', end='')
+                print('\033[91m█'+black_color, end='')
 
             elif char_num==7:
                 print(agent_color+'↑'+black_color, end='')
@@ -118,6 +118,22 @@ def print_state(state):
             elif char_num==10:
                 print(agent_color+'←'+black_color, end='')
         print('')
+
+
+def state_to_str(state):
+    '''
+    returns a string encoding of a state to serve as key in the state dictionary
+    '''
+    string=str(state.d_pos.shape[0])+str(state.d_pos.shape[1])
+    string += np.array_str(state.d_pos.flatten().astype(int))[1:-1]
+    string += np.array_str(state.v_pos.flatten().astype(int))[1:-1]
+    string += np.array_str(state.bv_pos.flatten().astype(int))[1:-1]
+    string += np.array_str(state.t_pos.flatten().astype(int))[1:-1]
+    string += np.array_str(state.a_pos.flatten().astype(int))[1:-1]
+    string += np.array_str(state.carrying.astype(int))[1:-1]
+        
+    return string.replace(" ", "")
+
 
 
 class VasesGrid(object):
@@ -132,7 +148,7 @@ class VasesGrid(object):
 
     def enumerate_states(self):
         i = 0
-        carrying = np.zeros(2)j
+        carrying = np.zeros(2, dtype='bool')
         n_v = self.spec.n_v
         n_t = _v = self.spec.n_t
         # Could be at the same location as the agent, or at any of the ds
@@ -172,7 +188,8 @@ class VasesGrid(object):
 
                         # Possible tablecloth positions
                         for t_pos in unique_perm(zeros_with_ones(n_t_pos, n_t)):
-                            # exclude states where the agent carries both the vase and the tablecloth
+                            # exclude states where the agent carries both the
+                            # vase and the tablecloth
                             if t_pos[-1]==1 and carrying[0]==1:
                                 break
 
