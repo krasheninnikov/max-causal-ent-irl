@@ -124,16 +124,54 @@ def state_to_str(state):
     '''
     returns a string encoding of a state to serve as key in the state dictionary
     '''
-    string=str(state.d_pos.shape[0])+str(state.d_pos.shape[1])
+    string = str(state.d_pos.shape[0]) + "," + str(state.d_pos.shape[1]) + ","
+    print(state.d_pos)
     string += np.array_str(state.d_pos.flatten().astype(int))[1:-1]
     string += np.array_str(state.v_pos.flatten().astype(int))[1:-1]
     string += np.array_str(state.bv_pos.flatten().astype(int))[1:-1]
     string += np.array_str(state.t_pos.flatten().astype(int))[1:-1]
     string += np.array_str(state.a_pos.flatten().astype(int))[1:-1]
-    string += np.array_str(state.carrying.astype(int))[1:-1]
+    string += np.array_str(np.asarray(state.carrying).astype(int))[1:-1]
         
     return string.replace(" ", "")
 
+def str_to_state(string):
+    '''
+    returns a state from a string encoding
+    assumes states are represented as binary masks
+    '''
+
+    rpos = string.find(",")
+    rows = int(string[:rpos])
+    string = string[rpos+1:]
+
+    cpos = string.find(",")
+    cols = int(string[:cpos])
+    string = string[cpos+1:]
+
+    d_pos = np.asarray(list(string[:rows*cols]))
+    d_pos = (d_pos > '0').reshape(rows, cols)
+    string = string[rows*cols:]
+
+    v_pos = np.asarray(list(string[:rows*cols]))
+    v_pos = (v_pos > '0').reshape(rows, cols)
+    string = string[rows*cols:]
+
+    bv_pos = np.asarray(list(string[:rows*cols]))
+    bv_pos = (bv_pos > '0').reshape(rows, cols)
+    string = string[rows*cols:]
+
+    a_pos = np.asarray(list(string[:4*rows*cols]))
+    a_pos = (a_pos > '0').reshape(4, rows, cols)
+    string = string[rows*cols:]
+
+    t_pos = np.asarray(list(string[:rows*cols]))
+    t_pos = (t_pos > '0').reshape(rows, cols)
+    string = string[rows*cols:]
+
+    carrying = [int(string[0]), int(string[1])]
+
+    return VasesEnvState(d_pos, v_pos, bv_pos, a_pos, t_pos, carrying)
 
 
 class VasesGrid(object):
@@ -200,6 +238,7 @@ class VasesGrid(object):
                             carrying[1] = t_pos[-1]
 
                             # TODO add the state to P; how to best store states?
+                            state = VasesEnvState(self.spec.d_mask, v_pos, bv_pos, a_pos, t_pos, carrying)
 
     def reset(self):
         self.s = deepcopy(self.init_state)
