@@ -125,7 +125,6 @@ def state_to_str(state):
     returns a string encoding of a state to serve as key in the state dictionary
     '''
     string = str(state.d_pos.shape[0]) + "," + str(state.d_pos.shape[1]) + ","
-    print(state.d_pos)
     string += np.array_str(state.d_pos.flatten().astype(int))[1:-1]
     string += np.array_str(state.v_pos.flatten().astype(int))[1:-1]
     string += np.array_str(state.bv_pos.flatten().astype(int))[1:-1]
