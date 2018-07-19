@@ -132,13 +132,14 @@ class VasesGrid(object):
 
     def enumerate_states(self):
         i = 0
+        carrying = np.zeros(2)j
         n_v = self.spec.n_v
         n_t = _v = self.spec.n_t
         # Could be at the same location as the agent, or at any of the ds
         n_v_pos = 1 + np.sum(self.spec.d_mask)
         n_bv_pos = np.sum(self.spec.bv_mask)
         n_a_pos = np.sum(self.spec.agent_mask)
-        n_t_pos = np.sum(self.spec.t_mask)
+        n_t_pos = 1 + np.sum(self.spec.t_mask)
         self.P = {}
 
         # Possible agent positions
@@ -152,36 +153,35 @@ class VasesGrid(object):
                 # n_places_for_vase choose n_vases
                 for v_pos in unique_perm(zeros_with_ones(n_v_pos, n_v-n_bv)):
 
-                    # Determine legal locations for the vase: it can be at ds,
-                    # or at the same location as the agent. Otherwise it would
-                    # have to be broken. The sum is over agent rotations.
-                    v_mask_legal = self.spec.d_mask + np.sum(agent_mask_pos, axis=0)
+                    # Determine legal locations for the vase: it can be at desks,
+                    # or at the agent's inventory. Otherwise it would
+                    # have to be broken.
 
                     # Place n_v-n_bv vases into the legal pos in the mask
-                    v_mask_pos = np.zeros_like(v_mask_legal.flatten())
-                    np.put(v_mask_pos, np.where(v_mask_legal.flatten()), v_pos)
+                    v_mask_pos = np.zeros_like(self.spec.d_mask.flatten())
+                    np.put(v_mask_pos, np.where(self.spec.d_mask.flatten()), v_pos[:-1])
                     v_mask_pos = v_mask_pos.reshape(self.spec.v_mask.shape)
 
-                    # Possible broken vase positions
+                    # last element of v_pos is the agent's inventory
+                    carrying[0] = v_pos[-1]
 
+                    # Possible broken vase positions
                     for bv_pos in unique_perm(zeros_with_ones(n_bv_pos, n_bv)):
                         bv_mask_pos = np.zeros_like(self.spec.bv_mask.flatten())
                         np.put(bv_mask_pos, np.where(self.spec.bv_mask.flatten()), v_pos)
 
-                        # Possible tablecloth positions; the agent can carry
-                        # either a vase or a tablecloth, not both. However,
-                        # this is only reflected in the step function since it's
-                        # possible for an agent carrying a vase to step on a tile
-                        # that contains a dropped tablecloth
-
+                        # Possible tablecloth positions
                         for t_pos in unique_perm(zeros_with_ones(n_t_pos, n_t)):
-                            t_mask_pos = np.zeros_like(self.spec.t_mask.flatten())
-                            np.put(t_mask_pos, np.where(self.spec.t_mask.flatten()), t_pos)
-                            t_mask_pos = t_mask_pos.reshape(self.spec.t_mask.shape)
+                            # exclude states where the agent carries both the vase and the tablecloth
+                            if t_pos[-1]==1 and carrying[0]==1:
+                                break
 
-                            # print(i); i+=1
-                            # TODO enumerate over carrying object / object being
-                            # on the floor
+                            # last element of t_pos is the agent's inventory
+                            t_mask_pos = np.zeros_like(self.spec.t_mask.flatten())
+                            np.put(t_mask_pos, np.where(self.spec.t_mask.flatten()), t_pos[:-1])
+                            t_mask_pos = t_mask_pos.reshape(self.spec.t_mask.shape)
+                            carrying[1] = t_pos[-1]
+
                             # TODO add the state to P; how to best store states?
 
     def reset(self):
