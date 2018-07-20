@@ -160,13 +160,13 @@ def str_to_state(string):
     bv_pos = (bv_pos > '0').reshape(rows, cols)
     string = string[rows*cols:]
 
-    a_pos = np.asarray(list(string[:4*rows*cols]))
-    a_pos = (a_pos > '0').reshape(4, rows, cols)
-    string = string[rows*cols:]
-
     t_pos = np.asarray(list(string[:rows*cols]))
     t_pos = (t_pos > '0').reshape(rows, cols)
     string = string[rows*cols:]
+
+    a_pos = np.asarray(list(string[:4*rows*cols]))
+    a_pos = (a_pos > '0').reshape(4, rows, cols)
+    string = string[4*rows*cols:]
 
     carrying = [int(string[0]), int(string[1])]
 
@@ -194,6 +194,7 @@ class VasesGrid(object):
         n_a_pos = np.sum(self.spec.agent_mask)
         n_t_pos = 1 + np.sum(self.spec.t_mask)
         P = {}
+        T = {}
         state_num = {}
 
         # Possible agent positions
@@ -295,6 +296,16 @@ class VasesGrid(object):
             a_pos_new[a_coord_new] = True
             state.a_pos = a_pos_new
 
+            # if carrying a vase, update position
+            if state.carrying[0]:
+                state.v_pos[a_coord[1:]] = False
+                state.v_pos[a_coord_new[1:]] = True
+
+            # if carrying a tablecloth, update position
+            if state.carrying[1]:
+                state.t_pos[a_coord[1:]] = False
+                state.t_pos[a_coord_new[1:]] = True
+
         elif action==4:
             obj_coord = shift_coord_array[int(a_coord[0])]
             obj_coord = (obj_coord[0] + a_coord[1], obj_coord[1] + a_coord[2])
@@ -306,11 +317,13 @@ class VasesGrid(object):
                     # vase
                     if state.v_pos[obj_coord] == True:
                         state.v_pos[obj_coord] = False
+                        state.v_pos[a_coord[1:]] = True
                         state.carrying[0] = 1
 
                     # tablecloth
                     elif state.t_pos[obj_coord] == True:
                         state.t_pos[obj_coord] = False
+                        state.t_pos[a_coord[1:]] = True
                         state.carrying[1] = 1
 
                 # Try to put down an object
@@ -319,6 +332,7 @@ class VasesGrid(object):
                     if state.carrying[0] == 1 and state.v_pos[obj_coord] == False:
                         # vase doesn't break
                         if self.spec.v_mask[obj_coord]:
+                            state.v_pos[a_coord[1:]] = False
                             state.v_pos[obj_coord] = True
                             state.carrying[0] = 0
 
@@ -326,6 +340,7 @@ class VasesGrid(object):
                         elif self.spec.bv_mask[obj_coord]:
                             # not allowing two broken vases in one spot
                             if state.bv_pos[obj_coord] == False:
+                                state.vt _pos[a_coord[1:]] = False
                                 state.bv_pos[obj_coord] = True
                                 state.carrying[0] = 0
 
@@ -334,6 +349,7 @@ class VasesGrid(object):
                         # cannot put into a cell already containing tablecloth or
                         # a vase (tablecloths go under vases)
                         if not state.t_pos[obj_coord] and not state.v_pos[obj_coord]:
+                            state.t_pos[a_coord[1:]] = False
                             state.t_pos[obj_coord] = True
                             state.carrying[1] = 0
 
