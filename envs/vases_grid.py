@@ -85,12 +85,14 @@ def print_state(state):
                 if state.a_pos[rotation, i, j]==1:
                     canvas[2*i+i+1, 2*j+j+1] = 7+rotation
 
-    black_color = '\033[0m'
+    black_color = '\x1b[0m'
+    purple_background_color = '\x1b[0;35;85m'
+
     agent_color = black_color
     if state.carrying[0] == 1:
-        agent_color = '\033[92m'
+        agent_color = '\x1b[1;42;42m'
     if state.carrying[1] == 1:
-        agent_color = '\033[95m'
+        agent_color = '\x1b[1;45;45m'
 
     for line in canvas:
         for char_num in line:
@@ -101,11 +103,12 @@ def print_state(state):
             elif char_num==2:
                 print('|', end='')
             elif char_num==3:
-                print('\033[93m█'+black_color, end='')
+                print('\x1b[0;33;85m█'+black_color, end='')
             elif char_num==4:
-                print('\033[92m█'+black_color , end='')
+                print('\x1b[0;32;85m█'+black_color , end='')
             elif char_num==5:
-                print('\033[95m█'+black_color, end='')
+                print(purple_background_color+'█'+black_color, end='')
+                #print('\033[95m█'+black_color, end='')
             elif char_num==6:
                 print('\033[91m█'+black_color, end='')
 
@@ -131,7 +134,7 @@ def state_to_str(state):
     string += np.array_str(state.t_pos.flatten().astype(int))[1:-1]
     string += np.array_str(state.a_pos.flatten().astype(int))[1:-1]
     string += np.array_str(np.asarray(state.carrying).astype(int))[1:-1]
-        
+
     return string.replace(" ", "")
 
 def str_to_state(string):
@@ -179,10 +182,8 @@ class VasesGrid(object):
         self.init_state = deepcopy(init_state)
         self.s = deepcopy(init_state)
         # TODO Jordan -> Dmitrii: Do we want to initialize P and T here or later on?
-        self.P, self.T = self.enumerate_states()
+        # self.P, self.T = self.enumerate_states()
 
-        # testing the functions below, they shouldn't be here in the final env
-        self.step(self.s, 0)
 
     def enumerate_states(self):
         carrying = np.zeros(2, dtype='bool')
@@ -238,7 +239,12 @@ class VasesGrid(object):
                             t_mask_pos = t_mask_pos.reshape(self.spec.t_mask.shape)
                             carrying[1] = t_pos[-1]
 
-                            state = VasesEnvState(self.spec.d_mask, v_mask_pos, bv_mask_pos, agent_mask_pos, t_mask_pos, carrying)
+                            state = VasesEnvState(self.spec.d_mask,
+                                                  v_mask_pos,
+                                                  bv_mask_pos,
+                                                  agent_mask_pos,
+                                                  t_mask_pos,
+                                                  carrying)
                             state_str = state_to_str(state)
 
                             P[state_str] = {}
@@ -246,27 +252,20 @@ class VasesGrid(object):
                                 state_num[state_str] = len(state_num)
 
                             for action in range(5):
-                                statep = self.step(state, action)
+                                statep = self.step(action, state)
                                 statep_str = state_to_str(statep)
                                 P[state_str][action] = (1, statep_str, 0)
                                 T[(state_str, action, statep_str)] = 1
 
-        return P, T
+        self.P = P
+        self.T = T
 
-        T = np.zeros([self.nS, self.nA, self.nS])
-        for s in range(self.nS):
-            for a in range(self.nA):
-                transitions = self.P[s][a]
-                s_a_s = {t[1]:t[0] for t in transitions}
-                for s_prime in range(self.nS):
-                    if s_prime in s_a_s:
-                        T[s, a, s_prime] = s_a_s[s_prime]
-        return T
 
     def reset(self):
         self.s = deepcopy(self.init_state)
 
-    def step(self, state, action):
+    def step(self, action, state=None):
+        if state==None: state = self.s
         'returns the next state given a state and an action'
 
         d_mask = self.spec.d_mask
@@ -296,15 +295,15 @@ class VasesGrid(object):
             a_pos_new[a_coord_new] = True
             state.a_pos = a_pos_new
 
-            # if carrying a vase, update position
-            if state.carrying[0]:
-                state.v_pos[a_coord[1:]] = False
-                state.v_pos[a_coord_new[1:]] = True
-
-            # if carrying a tablecloth, update position
-            if state.carrying[1]:
-                state.t_pos[a_coord[1:]] = False
-                state.t_pos[a_coord_new[1:]] = True
+            # # if carrying a vase, update position
+            # if state.carrying[0]:
+            #     state.v_pos[a_coord[1:]] = False
+            #     state.v_pos[a_coord_new[1:]] = True
+            #
+            # # if carrying a tablecloth, update position
+            # if state.carrying[1]:
+            #     state.t_pos[a_coord[1:]] = False
+            #     state.t_pos[a_coord_new[1:]] = True
 
         elif action==4:
             obj_coord = shift_coord_array[int(a_coord[0])]
@@ -317,13 +316,13 @@ class VasesGrid(object):
                     # vase
                     if state.v_pos[obj_coord] == True:
                         state.v_pos[obj_coord] = False
-                        state.v_pos[a_coord[1:]] = True
+                        #state.v_pos[a_coord[1:]] = True
                         state.carrying[0] = 1
 
                     # tablecloth
                     elif state.t_pos[obj_coord] == True:
                         state.t_pos[obj_coord] = False
-                        state.t_pos[a_coord[1:]] = True
+                        #state.t_pos[a_coord[1:]] = True
                         state.carrying[1] = 1
 
                 # Try to put down an object
@@ -332,7 +331,7 @@ class VasesGrid(object):
                     if state.carrying[0] == 1 and state.v_pos[obj_coord] == False:
                         # vase doesn't break
                         if self.spec.v_mask[obj_coord]:
-                            state.v_pos[a_coord[1:]] = False
+                            #state.v_pos[a_coord[1:]] = False
                             state.v_pos[obj_coord] = True
                             state.carrying[0] = 0
 
@@ -340,7 +339,7 @@ class VasesGrid(object):
                         elif self.spec.bv_mask[obj_coord]:
                             # not allowing two broken vases in one spot
                             if state.bv_pos[obj_coord] == False:
-                                state.vt _pos[a_coord[1:]] = False
+                                #state.v_pos[a_coord[1:]] = False
                                 state.bv_pos[obj_coord] = True
                                 state.carrying[0] = 0
 
@@ -349,7 +348,7 @@ class VasesGrid(object):
                         # cannot put into a cell already containing tablecloth or
                         # a vase (tablecloths go under vases)
                         if not state.t_pos[obj_coord] and not state.v_pos[obj_coord]:
-                            state.t_pos[a_coord[1:]] = False
+                            #state.t_pos[a_coord[1:]] = False
                             state.t_pos[obj_coord] = True
                             state.carrying[1] = 0
 
