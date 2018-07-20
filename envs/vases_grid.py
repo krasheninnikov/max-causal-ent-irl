@@ -178,13 +178,13 @@ class VasesGrid(object):
         self.spec = spec
         self.init_state = deepcopy(init_state)
         self.s = deepcopy(init_state)
+        # TODO Jordan -> Dmitrii: Do we want to initialize P and T here or later on?
+        self.P, self.T = self.enumerate_states()
 
         # testing the functions below, they shouldn't be here in the final env
-        self.enumerate_states()
         self.step(self.s, 0)
 
     def enumerate_states(self):
-        i = 0
         carrying = np.zeros(2, dtype='bool')
         n_v = self.spec.n_v
         n_t = _v = self.spec.n_t
@@ -193,7 +193,8 @@ class VasesGrid(object):
         n_bv_pos = np.sum(self.spec.bv_mask)
         n_a_pos = np.sum(self.spec.agent_mask)
         n_t_pos = 1 + np.sum(self.spec.t_mask)
-        self.P = {}
+        P = {}
+        state_num = {}
 
         # Possible agent positions
         for a_pos in unique_perm(zeros_with_ones(n_a_pos, 1)):
@@ -236,8 +237,30 @@ class VasesGrid(object):
                             t_mask_pos = t_mask_pos.reshape(self.spec.t_mask.shape)
                             carrying[1] = t_pos[-1]
 
-                            # TODO add the state to P; how to best store states?
-                            state = VasesEnvState(self.spec.d_mask, v_pos, bv_pos, a_pos, t_pos, carrying)
+                            state = VasesEnvState(self.spec.d_mask, v_mask_pos, bv_mask_pos, agent_mask_pos, t_mask_pos, carrying)
+                            state_str = state_to_str(state)
+
+                            P[state_str] = {}
+                            if state_str not in state_num:
+                                state_num[state_str] = len(state_num)
+
+                            for action in range(5):
+                                statep = self.step(state, action)
+                                statep_str = state_to_str(statep)
+                                P[state_str][action] = (1, statep_str, 0)
+                                T[(state_str, action, statep_str)] = 1
+
+        return P, T
+
+        T = np.zeros([self.nS, self.nA, self.nS])
+        for s in range(self.nS):
+            for a in range(self.nA):
+                transitions = self.P[s][a]
+                s_a_s = {t[1]:t[0] for t in transitions}
+                for s_prime in range(self.nS):
+                    if s_prime in s_a_s:
+                        T[s, a, s_prime] = s_a_s[s_prime]
+        return T
 
     def reset(self):
         self.s = deepcopy(self.init_state)
