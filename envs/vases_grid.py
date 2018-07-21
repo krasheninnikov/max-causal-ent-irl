@@ -85,8 +85,7 @@ class VasesGrid(object):
                         # Possible tablecloth positions
                         for t_pos in unique_perm(zeros_with_ones(n_t_pos, n_t)):
                             # TODO exclude states where the agent carries both
-                            # the vase and the tablecloth; below is a seemingly
-                            # incorrect way to do it
+                            # the vase and the tablecloth; below is an incorrect way to do it
                             # if t_pos[-1]==1 and carrying[0]==1:
                             #    break
 
@@ -114,6 +113,10 @@ class VasesGrid(object):
 
                 statep = self.step(action, str_to_state(state_str))
                 statep_str = state_to_str(statep)
+
+                # Dmitrii -> Jordan: I used the code below to debug state enumeration,
+                # I think it can still be useful for figuing out how to not count
+                # states with carrying==[1, 1]
                 try:
                     P[state_num_id][action] = (1, state_num[statep_str], 0)
                 except KeyError as e:
@@ -133,11 +136,7 @@ class VasesGrid(object):
         T = np.zeros([self.nS, self.nA, self.nS])
         for s in range(self.nS):
             for a in range(self.nA):
-                transitions = self.P[s][a]
-                s_a_s = {t[1]:t[0] for t in transitions}
-                for s_prime in range(self.nS):
-                    if s_prime in s_a_s:
-                        T[s, a, s_prime] = s_a_s[s_prime]
+                T[s, a, self.P[s][a][1]] = 1
         return T
 
 
