@@ -84,16 +84,15 @@ class VasesGrid(object):
 
                         # Possible tablecloth positions
                         for t_pos in unique_perm(zeros_with_ones(n_t_pos, n_t)):
-                            # TODO exclude states where the agent carries both
-                            # the vase and the tablecloth; below is an incorrect way to do it
-                            # if t_pos[-1]==1 and carrying[0]==1:
-                            #    break
+
+                            carrying[1] = t_pos[-1]
+                            if np.sum(carrying)==2:
+                                continue
 
                             # last element of t_pos is the agent's inventory
                             t_mask_pos = np.zeros_like(self.spec.t_mask.flatten())
                             np.put(t_mask_pos, np.where(self.spec.t_mask.flatten()), t_pos[:-1])
                             t_mask_pos = t_mask_pos.reshape(self.spec.t_mask.shape)
-                            carrying[1] = t_pos[-1]
 
                             state = VasesEnvState(self.spec.d_mask,
                                                   v_mask_pos,
@@ -106,25 +105,14 @@ class VasesGrid(object):
                             if state_str not in state_num:
                                 state_num[state_str] = len(state_num)
 
-
+        # Take every possible action from each of the possible states. Since the
+        # env is deterministic, this is sufficient to get transition probs
         for state_str, state_num_id in state_num.items():
             P[state_num_id] = {}
             for action in range(5):
-
                 statep = self.step(action, str_to_state(state_str))
                 statep_str = state_to_str(statep)
-
-                # Dmitrii -> Jordan: I used the code below to debug state enumeration,
-                # I think it can still be useful for figuing out how to not count
-                # states with carrying==[1, 1]
-                try:
-                    P[state_num_id][action] = (1, state_num[statep_str], 0)
-                except KeyError as e:
-                    print('###########################')
-                    print_state(str_to_state(state_str))
-                    print('Taking action: ', action)
-                    print_state(statep)
-                    print('###########################')
+                P[state_num_id][action] = (1, state_num[statep_str], 0)
 
         self.state_num = state_num
         self.P = P
