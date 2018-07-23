@@ -280,15 +280,19 @@ def vi_boltzmann_deterministic(mdp, gamma, r, horizon=None,  temperature=1,
         diff = float("inf")
         while diff > threshold:
             V_prev = np.copy(V)
-
-            # TODO figure out how to compute Q faster without the transition matrix
+################################################################################
             # ∀ s,a: Q[s,a] = (r_s + gamma * \sum_{s'} p(s'|s,a)V_{s'})
             # Q = r.reshape((-1,1)) + gamma * np.dot(mdp.T, V_prev)
-            Q = np.tile(r, (mdp.nA, 1)).T
-            for s in range(mdp.nS):
-                for a in range(mdp.nA):
-                    Q[s, a] += gamma * V[mdp.P[s][a][1]]
 
+            # TODO figure out how to compute Q fastest without the transition matrix
+            Q = np.tile(r, (mdp.nA, 1)).T
+            for a in range(mdp.nA):
+                Q[:, a] += gamma * V[mdp.deterministic_T[:, a]]
+
+            # TODO turn the above into a one-liner; below is the wrong way
+            #Q += gamma * (np.tile(V, (mdp.nA, 1)).T)[mdp.deterministic_T]
+
+################################################################################
 
             if use_mellowmax:
                 # ∀ s: V_s = temperature * log(\sum_a exp(Q_{sa}/temperature) / nA)
