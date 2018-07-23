@@ -115,6 +115,7 @@ class VasesGrid(object):
                 P[state_num_id][action] = (1, state_num[statep_str], 0)
 
         self.state_num = state_num
+        self.num_state = {v: k for k, v in self.state_num.items()}
         self.P = P
         self.nS = len(P.keys())
 
@@ -126,6 +127,24 @@ class VasesGrid(object):
             for a in range(self.nA):
                 T[s, a, self.P[s][a][1]] = 1
         return T
+
+
+    def make_feature_matrix(self):
+         self.feature_matrix = np.zeros((self.nS, 6))
+         for state_str, state_num_id in self.state_num.items():
+             self.feature_matrix[state_num_id, :] = self.s_to_f(str_to_state(state_str))
+
+
+    def s_to_f(self, s):
+        vases_on_tables = np.logical_and(s.v_pos, self.spec.table_mask)
+        tablecloths_on_tables = np.logical_and(s.t_pos, self.spec.table_mask)
+        f = np.asarray([np.sum(s.bv_pos), # number of broken vases
+             np.sum(vases_on_tables), # number of vases on tables
+             np.sum(tablecloths_on_tables),
+             np.sum(np.logical_and(s.t_pos, self.spec.bv_mask)), # number of tablecloths on the floor
+             np.sum(np.logical_xor(vases_on_tables, np.logical_and(s.v_pos, s.d_pos))), # vases on desks
+             np.sum(np.logical_xor(tablecloths_on_tables, np.logical_and(s.t_pos, s.d_pos)))]) # tablecloths on desks
+        return f
 
 
     def reset(self):
