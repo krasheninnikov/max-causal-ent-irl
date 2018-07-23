@@ -1,5 +1,4 @@
 import numpy as np
-from vases_grid import VasesGrid, VasesEnvSpec, VasesEnvState
 
 class VasesEnvSpec2x3(object):
     def __init__(self):
@@ -24,6 +23,8 @@ class VasesEnvSpec2x3(object):
         self.n_v = 1
         self.n_t = 1
 
+        self.table_mask = np.array([[0, 0, 1],
+                                    [0, 0, 0]], dtype='bool')
 
 class VasesEnvState2x3(object):
     '''
@@ -58,6 +59,9 @@ class VasesEnvSpec3x3(object):
         self.d_mask = np.array([[1, 0, 1],
                               [0, 0, 0],
                               [1, 0, 1]], dtype='bool')
+        self.table_mask = np.array([[0, 0, 1],
+                                      [0, 0, 0],
+                                      [0, 0, 0]], dtype='bool')
         self.v_mask = np.array([[1, 0, 1],
                               [0, 0, 0],
                               [1, 0, 1]], dtype='bool')

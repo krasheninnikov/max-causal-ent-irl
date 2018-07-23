@@ -1,6 +1,8 @@
 import numpy as np
 
 def zeros_with_ones(n_zeros, n_ones):
+    if n_ones>n_zeros or n_ones<0:
+        raise ValueError
     x = np.zeros(n_zeros, dtype='bool')
     x[:n_ones]=1
     return x

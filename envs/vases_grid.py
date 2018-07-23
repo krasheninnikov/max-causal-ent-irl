@@ -2,7 +2,7 @@ import numpy as np
 import operator as op
 from scipy.special import comb
 from copy import copy, deepcopy
-from utils import unique_perm, zeros_with_ones
+from envs.utils import unique_perm, zeros_with_ones
 
 class VasesEnvSpec(object):
     def __init__(self, n_v, n_t, d_mask, v_mask, bv_mask, agent_mask, t_mask):
@@ -122,11 +122,11 @@ class VasesGrid(object):
 
     def get_transition_matrix(self):
         '''Return a matrix with index S,A,S' -> P(S'|S,A)'''
-        T = np.zeros([self.nS, self.nA, self.nS])
+        self.T = np.zeros([self.nS, self.nA, self.nS])
         for s in range(self.nS):
             for a in range(self.nA):
-                T[s, a, self.P[s][a][1]] = 1
-        return T
+                self.T[s, a, self.P[s][a][1]] = 1
+
 
 
     def make_feature_matrix(self):
