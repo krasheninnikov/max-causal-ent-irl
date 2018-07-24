@@ -58,7 +58,6 @@ class VasesEnvState2x3_2v2d(object):
                                     [0, 0, 0]], dtype='bool')
 
 
-
 class VasesEnvSpec2x3(object):
     def __init__(self):
         '''
