@@ -27,7 +27,7 @@ class VasesGrid(object):
         self.s = deepcopy(init_state)
 
         self.enumerate_states()
-        self.make_feature_matrix()
+        self.make_f_matrix()
         self.get_deterministic_transitions()
 
     def enumerate_states(self):
@@ -128,10 +128,10 @@ class VasesGrid(object):
                 self.deterministic_T[s,a]=self.P[s][a][1]
 
 
-    def make_feature_matrix(self):
-         self.feature_matrix = np.zeros((self.nS, 6))
+    def make_f_matrix(self):
+         self.f_matrix = np.zeros((self.nS, 6))
          for state_str, state_num_id in self.state_num.items():
-             self.feature_matrix[state_num_id, :] = self.s_to_f(str_to_state(state_str))
+             self.f_matrix[state_num_id, :] = self.s_to_f(str_to_state(state_str))
 
 
     def s_to_f(self, s):
@@ -368,9 +368,9 @@ def print_state(state):
             if char_num==0:
                 print('\u2003', end='')
             elif char_num==1:
-                print('\u2013', end='')
+                print('─', end='')
             elif char_num==2:
-                print('|', end='')
+                print('│', end='')
             elif char_num==3:
                 print('\x1b[0;33;85m█'+black_color, end='')
             elif char_num==-1:
