@@ -2,10 +2,11 @@ import numpy as np
 
 class VasesEnvSpec2x3(object):
     def __init__(self):
-
+        '''
+        d_mask corresponds to all surfaces, desks and tables.
+        table_mask shows which surfaces in d_mask are tables; the rest are desks.
+        '''
         self.d_mask = np.array([[1, 0, 1],
-                                [0, 0, 0]], dtype='bool')
-        self.v_mask = np.array([[1, 0, 1],
                                 [0, 0, 0]], dtype='bool')
         self.bv_mask = np.array([[0, 1, 0],
                                  [1, 1, 1]], dtype='bool')
@@ -56,10 +57,12 @@ class VasesEnvState2x3(object):
 
 class VasesEnvSpec2x3Broken(object):
     def __init__(self):
+        '''
+        d_mask corresponds to all surfaces, desks and tables.
+        table_mask shows which surfaces in d_mask are tables; the rest are desks.
+        '''
 
         self.d_mask = np.array([[1, 0, 1],
-                                [0, 0, 0]], dtype='bool')
-        self.v_mask = np.array([[1, 0, 1],
                                 [0, 0, 0]], dtype='bool')
         self.bv_mask = np.array([[0, 1, 0],
                                  [1, 1, 1]], dtype='bool')
@@ -111,16 +114,16 @@ class VasesEnvState2x3Broken(object):
 
 class VasesEnvSpec3x3(object):
     def __init__(self):
-
+        '''
+        d_mask corresponds to all surfaces, desks and tables.
+        table_mask shows which surfaces in d_mask are tables; the rest are desks.
+        '''
         self.d_mask = np.array([[1, 0, 1],
                               [0, 0, 0],
                               [1, 0, 1]], dtype='bool')
         self.table_mask = np.array([[0, 0, 1],
                                       [0, 0, 0],
                                       [0, 0, 0]], dtype='bool')
-        self.v_mask = np.array([[1, 0, 1],
-                              [0, 0, 0],
-                              [1, 0, 1]], dtype='bool')
         self.bv_mask = np.array([[0, 1, 0],
                                  [1, 1, 1]], dtype='bool')
         self.agent_mask = np.array([[[0, 1, 0],
@@ -150,8 +153,8 @@ class VasesEnvState3x3(object):
     '''
     def __init__(self):
         self.d_pos = np.array([[1, 0, 1],
-                              [0, 0, 0],
-                              [1, 0, 1]], dtype='bool')
+                               [0, 0, 0],
+                               [1, 0, 1]], dtype='bool')
         self.v_pos = np.array([[1, 0, 0],
                               [0, 0, 0],
                               [1, 0, 0]], dtype='bool')
@@ -173,8 +176,8 @@ class VasesEnvState3x3(object):
                       [0, 0, 0]]], dtype='bool')
 
         self.t_pos = np.array([[1, 0, 0],
-                           [0, 0, 0],
-                           [0, 0, 0]], dtype='bool')
+                               [0, 0, 0],
+                               [0, 0, 0]], dtype='bool')
         # Variable determining whether the agent is carrying something:
         # [0, 0] -> nothing, [1, 0] -> vase, [0, 1] -> tablecloth
         self.carrying = np.array([0, 0], dtype='bool')

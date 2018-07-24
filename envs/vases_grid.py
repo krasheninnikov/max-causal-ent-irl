@@ -1,18 +1,6 @@
 import numpy as np
-import operator as op
-from scipy.special import comb
 from copy import copy, deepcopy
 from envs.utils import unique_perm, zeros_with_ones
-
-class VasesEnvSpec(object):
-    def __init__(self, n_v, n_t, d_mask, v_mask, bv_mask, agent_mask, t_mask):
-        self.n_v = n_v # number of vases
-        self.n_t = n_t # number of tablecloths
-        self.d_mask = d_mask # desk location
-        self.v_mask = v_mask # places where vases can be
-        self.bv_mask = bv_mask # places where broken vases can be
-        self.agent_mask = agent_mask # places where agent can be
-        self.t_mask = t_mask # places where tablecloths can be
 
 
 class VasesEnvState(object):
@@ -36,10 +24,10 @@ class VasesGrid(object):
         self.spec = spec
         self.init_state = deepcopy(init_state)
         self.s = deepcopy(init_state)
-        # TODO Jordan -> Dmitrii: Do we want to initialize P and T here or later on?
-        # Dmitrii -> Jordan: now they're created inside the enumerate_states() function
-        # self.enumerate_states()
 
+        self.enumerate_states()
+        self.make_feature_matrix()
+        self.get_deterministic_transitions()
 
     def enumerate_states(self):
         carrying = np.zeros(2, dtype='bool')
@@ -51,7 +39,6 @@ class VasesGrid(object):
         n_a_pos = np.sum(self.spec.agent_mask)
         n_t_pos = 1 + np.sum(self.spec.t_mask)
         P = {}
-        T = {}
         state_num = {}
 
         # Possible agent positions
@@ -72,7 +59,7 @@ class VasesGrid(object):
                     # Place n_v-n_bv vases into the legal pos in the mask
                     v_mask_pos = np.zeros_like(self.spec.d_mask.flatten())
                     np.put(v_mask_pos, np.where(self.spec.d_mask.flatten()), v_pos[:-1])
-                    v_mask_pos = v_mask_pos.reshape(self.spec.v_mask.shape)
+                    v_mask_pos = v_mask_pos.reshape(self.spec.d_mask.shape)
 
                     # last element of v_pos is the agent's inventory
                     carrying[0] = v_pos[-1]
@@ -85,11 +72,14 @@ class VasesGrid(object):
                         # Possible tablecloth positions
                         for t_pos in unique_perm(zeros_with_ones(n_t_pos, n_t)):
 
+                            # last element of t_pos is the agent's inventory
                             carrying[1] = t_pos[-1]
+
+                            # don't count states where the agent carries both a
+                            # vase and a tablecloth since these aren't permitted
                             if np.sum(carrying)==2:
                                 continue
 
-                            # last element of t_pos is the agent's inventory
                             t_mask_pos = np.zeros_like(self.spec.t_mask.flatten())
                             np.put(t_mask_pos, np.where(self.spec.t_mask.flatten()), t_pos[:-1])
                             t_mask_pos = t_mask_pos.reshape(self.spec.t_mask.shape)
@@ -126,6 +116,7 @@ class VasesGrid(object):
         for s in range(self.nS):
             for a in range(self.nA):
                 self.T[s, a, self.P[s][a][1]] = 1
+
 
     def get_deterministic_transitions(self):
         '''Create self.deterministic_T, a matrix with index S,A -> S'   '''
@@ -167,9 +158,8 @@ class VasesGrid(object):
 
 
     def step(self, action, state=None):
+        '''returns the next state given a state and an action'''
         if state==None: state = self.s
-        'returns the next state given a state and an action'
-
         d_mask = self.spec.d_mask
         n = d_mask.shape[0]
         m = d_mask.shape[1]
@@ -197,16 +187,6 @@ class VasesGrid(object):
             a_pos_new[a_coord_new] = True
             state.a_pos = a_pos_new
 
-            # # if carrying a vase, update position
-            # if state.carrying[0]:
-            #     state.v_pos[a_coord[1:]] = False
-            #     state.v_pos[a_coord_new[1:]] = True
-            #
-            # # if carrying a tablecloth, update position
-            # if state.carrying[1]:
-            #     state.t_pos[a_coord[1:]] = False
-            #     state.t_pos[a_coord_new[1:]] = True
-
         elif action==4:
             obj_coord = shift_coord_array[int(a_coord[0])]
             obj_coord = (obj_coord[0] + a_coord[1], obj_coord[1] + a_coord[2])
@@ -218,13 +198,11 @@ class VasesGrid(object):
                     # vase
                     if state.v_pos[obj_coord] == True:
                         state.v_pos[obj_coord] = False
-                        #state.v_pos[a_coord[1:]] = True
                         state.carrying[0] = 1
 
                     # tablecloth
                     elif state.t_pos[obj_coord] == True:
                         state.t_pos[obj_coord] = False
-                        #state.t_pos[a_coord[1:]] = True
                         state.carrying[1] = 1
 
                 # Try to put down an object
@@ -232,8 +210,7 @@ class VasesGrid(object):
                     # carrying a vase and there's no other vase at obj_coord
                     if state.carrying[0] == 1 and state.v_pos[obj_coord] == False:
                         # vase doesn't break
-                        if self.spec.v_mask[obj_coord]:
-                            #state.v_pos[a_coord[1:]] = False
+                        if self.spec.d_mask[obj_coord]:
                             state.v_pos[obj_coord] = True
                             state.carrying[0] = 0
 
@@ -241,7 +218,6 @@ class VasesGrid(object):
                         elif self.spec.bv_mask[obj_coord]:
                             # not allowing two broken vases in one spot
                             if state.bv_pos[obj_coord] == False:
-                                #state.v_pos[a_coord[1:]] = False
                                 state.bv_pos[obj_coord] = True
                                 state.carrying[0] = 0
 
@@ -250,7 +226,6 @@ class VasesGrid(object):
                         # cannot put into a cell already containing tablecloth or
                         # a vase (tablecloths go under vases)
                         if not state.t_pos[obj_coord] and not state.v_pos[obj_coord]:
-                            #state.t_pos[a_coord[1:]] = False
                             state.t_pos[obj_coord] = True
                             state.carrying[1] = 0
 
