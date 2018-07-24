@@ -1,4 +1,16 @@
 import numpy as np
+import contextlib
+
+
+@contextlib.contextmanager
+def printoptions(*args, **kwargs):
+    original = np.get_printoptions()
+    np.set_printoptions(*args, **kwargs)
+    try:
+        yield
+    finally:
+        np.set_printoptions(**original)
+
 
 def zeros_with_ones(n_zeros, n_ones):
     if n_ones>n_zeros or n_ones<0:
@@ -6,6 +18,7 @@ def zeros_with_ones(n_zeros, n_ones):
     x = np.zeros(n_zeros, dtype='bool')
     x[:n_ones]=1
     return x
+
 
 def unique_perm(seq):
     """
