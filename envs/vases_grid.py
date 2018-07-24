@@ -121,12 +121,18 @@ class VasesGrid(object):
 
 
     def get_transition_matrix(self):
-        '''Return a matrix with index S,A,S' -> P(S'|S,A)'''
+        '''Create self.T, a matrix with index S,A,S' -> P(S'|S,A)      '''
         self.T = np.zeros([self.nS, self.nA, self.nS])
         for s in range(self.nS):
             for a in range(self.nA):
                 self.T[s, a, self.P[s][a][1]] = 1
 
+    def get_deterministic_transitions(self):
+        '''Create self.deterministic_T, a matrix with index S,A -> S'   '''
+        self.deterministic_T = np.zeros((self.nS, self.nA), dtype='int32')
+        for s in range(self.nS):
+            for a in range(self.nA):
+                self.deterministic_T[s,a]=self.P[s][a][1]
 
 
     def make_feature_matrix(self):
@@ -136,6 +142,15 @@ class VasesGrid(object):
 
 
     def s_to_f(self, s):
+        '''
+        returns features of the state:
+        - Number of broken vases
+        - Number of vases on tables
+        - Number of tablecloths on tables
+        - Number of tablecloths on floors
+        - Number of vases on desks
+        - Number of tablecloths on desks
+        '''
         vases_on_tables = np.logical_and(s.v_pos, self.spec.table_mask)
         tablecloths_on_tables = np.logical_and(s.t_pos, self.spec.table_mask)
         f = np.asarray([np.sum(s.bv_pos), # number of broken vases
