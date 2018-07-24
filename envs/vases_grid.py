@@ -252,7 +252,6 @@ def str_to_state(string):
     returns a state from a string encoding
     assumes states are represented as binary masks
     '''
-
     rpos = string.find(",")
     rows = int(string[:rpos])
     string = string[rpos+1:]
@@ -295,9 +294,9 @@ def print_state(state):
     - Brown tiles correspond to tables
     - Purple tiles correspond to tablecloths
     - The arrow and its direction correspond to the agent and its rotation. The
-      color of the arrow corres to the object the agent is carrying. The agent is
-      rendered in the same subcell as tables are since the agent and the table
-      are never in the same cell.
+      background color of the arrow corresponds to the object the agent is
+      carrying. The agent is rendered in the same subcell as tables are since
+      the agent and the table are never in the same cell.
     '''
     n = state.d_pos.shape[0]
     m = state.d_pos.shape[1]
@@ -314,32 +313,32 @@ def print_state(state):
     for i in range(n):
         for j in range(m):
             if state.d_pos[i, j]==1:
-                canvas[2*i+i+1, 2*j+j+1] = 3
+                canvas[3*i+1, 3*j+1] = 3
 
     # vases
     for i in range(n):
         for j in range(m):
             if state.v_pos[i, j]==1:
-                canvas[2*i+i, 2*j+j+2] = 4
+                canvas[3*i, 3*j+2] = 4
 
     # tablecloths
     for i in range(n):
         for j in range(m):
             if state.t_pos[i, j]==1:
-                canvas[2*i+i, 2*j+j+1] = 5
+                canvas[3*i, 3*j+1] = 5
 
     # broken vases
     for i in range(n):
         for j in range(m):
             if state.bv_pos[i, j]==1:
-                canvas[2*i+i+1, 2*j+j+2] = 6
+                canvas[3*i+1, 3*j+2] = 6
 
     # agent
     for rotation in range(4):
         for i in range(n):
             for j in range(m):
                 if state.a_pos[rotation, i, j]==1:
-                    canvas[2*i+i+1, 2*j+j+1] = 7+rotation
+                    canvas[3*i+1, 3*j+1] = 7+rotation
 
     black_color = '\x1b[0m'
     purple_background_color = '\x1b[0;35;85m'

@@ -125,7 +125,8 @@ class VasesEnvSpec3x3(object):
                                       [0, 0, 0],
                                       [0, 0, 0]], dtype='bool')
         self.bv_mask = np.array([[0, 1, 0],
-                                 [1, 1, 1]], dtype='bool')
+                                 [1, 1, 1],
+                                 [0, 1, 0]], dtype='bool')
         self.agent_mask = np.array([[[0, 1, 0],
                                     [1, 1, 1],
                                     [0, 1, 0]],
