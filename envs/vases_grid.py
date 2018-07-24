@@ -7,7 +7,7 @@ class VasesEnvState(object):
     '''
     state of the environment; describes positions of all objects in the env.
     '''
-    def __init__(self, d_pos, v_pos, bv_pos, a_pos, t_pos, carrying):
+    def __init__(self, d_pos, v_pos, bv_pos, a_pos, t_pos, carrying, table_pos):
         self.d_pos = d_pos
         self.v_pos = v_pos
         self.bv_pos = bv_pos
@@ -16,6 +16,7 @@ class VasesEnvState(object):
         # Variable determining whether the agent is carrying something:
         # [0, 0] -> nothing, [1, 0] -> vase, [0, 1] -> tablecloth
         self.carrying = carrying
+        self.table_pos = table_pos
 
 
 class VasesGrid(object):
@@ -89,7 +90,8 @@ class VasesGrid(object):
                                                   bv_mask_pos,
                                                   agent_mask_pos,
                                                   t_mask_pos,
-                                                  carrying)
+                                                  carrying,
+                                                  self.spec.table_mask)
                             state_str = state_to_str(state)
 
                             if state_str not in state_num:
@@ -241,6 +243,7 @@ def state_to_str(state):
     string += np.array_str(state.v_pos.flatten().astype(int))[1:-1]
     string += np.array_str(state.bv_pos.flatten().astype(int))[1:-1]
     string += np.array_str(state.t_pos.flatten().astype(int))[1:-1]
+    string += np.array_str(state.table_pos.flatten().astype(int))[1:-1]
     string += np.array_str(state.a_pos.flatten().astype(int))[1:-1]
     string += np.array_str(np.asarray(state.carrying).astype(int))[1:-1]
 
@@ -276,13 +279,17 @@ def str_to_state(string):
     t_pos = (t_pos > '0').reshape(rows, cols)
     string = string[rows*cols:]
 
+    table_pos = np.asarray(list(string[:rows*cols]))
+    table_pos = (table_pos > '0').reshape(rows, cols)
+    string = string[rows*cols:]
+
     a_pos = np.asarray(list(string[:4*rows*cols]))
     a_pos = (a_pos > '0').reshape(4, rows, cols)
     string = string[4*rows*cols:]
 
     carrying = [int(string[0]), int(string[1])]
 
-    return VasesEnvState(d_pos, v_pos, bv_pos, a_pos, t_pos, carrying)
+    return VasesEnvState(d_pos, v_pos, bv_pos, a_pos, t_pos, carrying, table_pos)
 
 
 def print_state(state):
@@ -314,6 +321,13 @@ def print_state(state):
         for j in range(m):
             if state.d_pos[i, j]==1:
                 canvas[3*i+1, 3*j+1] = 3
+
+    # tables; it's important for this for loop to be after the d_pos for loop
+    # since table_pos is in d_pos
+    for i in range(n):
+        for j in range(m):
+            if state.table_pos[i, j]==1:
+                canvas[3*i+1, 3*j+1] = -1
 
     # vases
     for i in range(n):
@@ -359,11 +373,12 @@ def print_state(state):
                 print('|', end='')
             elif char_num==3:
                 print('\x1b[0;33;85m█'+black_color, end='')
+            elif char_num==-1:
+                print('\033[93m█'+black_color, end='')
             elif char_num==4:
                 print('\x1b[0;32;85m█'+black_color , end='')
             elif char_num==5:
                 print(purple_background_color+'█'+black_color, end='')
-                #print('\033[95m█'+black_color, end='')
             elif char_num==6:
                 print('\033[91m█'+black_color, end='')
 
