@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class VasesEnvSpec2x3_2v2d(object):
+class VasesEnvSpec2x3V2D3(object):
     def __init__(self):
         '''
         d_mask corresponds to all surfaces, desks and tables.
@@ -29,7 +29,7 @@ class VasesEnvSpec2x3_2v2d(object):
                                     [0, 0, 0]], dtype='bool')
 
 
-class VasesEnvState2x3_2v2d(object):
+class VasesEnvState2x3V2D3(object):
     '''
     state of the environment; describes positions of all objects in the env.
     '''

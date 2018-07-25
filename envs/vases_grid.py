@@ -322,13 +322,6 @@ def print_state(state):
             if state.d_pos[i, j]==1:
                 canvas[3*i+1, 3*j+1] = 3
 
-    # tables; it's important for this for loop to be after the d_pos for loop
-    # since table_pos is in d_pos
-    for i in range(n):
-        for j in range(m):
-            if state.table_pos[i, j]==1:
-                canvas[3*i+1, 3*j+1] = -1
-
     # vases
     for i in range(n):
         for j in range(m):
@@ -354,6 +347,13 @@ def print_state(state):
                 if state.a_pos[rotation, i, j]==1:
                     canvas[3*i+1, 3*j+1] = 7+rotation
 
+    # tables; it's important for this for loop to be after the d_pos for loop
+    # since table_pos is in d_pos
+    for i in range(n):
+        for j in range(m):
+            if state.table_pos[i, j]==1:
+                canvas[3*i+1, 3*j+1] = 11
+
     black_color = '\x1b[0m'
     purple_background_color = '\x1b[0;35;85m'
 
@@ -373,15 +373,12 @@ def print_state(state):
                 print('│', end='')
             elif char_num==3:
                 print('\x1b[0;33;85m█'+black_color, end='')
-            elif char_num==-1:
-                print('\033[93m█'+black_color, end='')
             elif char_num==4:
                 print('\x1b[0;32;85m█'+black_color , end='')
             elif char_num==5:
                 print(purple_background_color+'█'+black_color, end='')
             elif char_num==6:
                 print('\033[91m█'+black_color, end='')
-
             elif char_num==7:
                 print(agent_color+'↑'+black_color, end='')
             elif char_num==8:
@@ -390,4 +387,6 @@ def print_state(state):
                 print(agent_color+'↓'+black_color, end='')
             elif char_num==10:
                 print(agent_color+'←'+black_color, end='')
+            elif char_num==11:
+                print('\033[93m█'+black_color, end='')
         print('')
