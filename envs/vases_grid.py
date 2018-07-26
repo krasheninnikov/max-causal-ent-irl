@@ -104,7 +104,7 @@ class VasesGrid(object):
             for action in range(5):
                 statep = self.step(action, str_to_state(state_str))
                 statep_str = state_to_str(statep)
-                P[state_num_id][action] = (1, state_num[statep_str], 0)
+                P[state_num_id][action] = [(1, state_num[statep_str], 0)]
 
         self.state_num = state_num
         self.num_state = {v: k for k, v in self.state_num.items()}
@@ -117,7 +117,7 @@ class VasesGrid(object):
         self.T = np.zeros([self.nS, self.nA, self.nS])
         for s in range(self.nS):
             for a in range(self.nA):
-                self.T[s, a, self.P[s][a][1]] = 1
+                self.T[s, a, self.P[s][a][0][1]] = 1
 
 
     def get_deterministic_transitions(self):
@@ -125,7 +125,7 @@ class VasesGrid(object):
         self.deterministic_T = np.zeros((self.nS, self.nA), dtype='int32')
         for s in range(self.nS):
             for a in range(self.nA):
-                self.deterministic_T[s,a]=self.P[s][a][1]
+                self.deterministic_T[s,a]=self.P[s][a][0][1]
 
 
     def make_f_matrix(self):
