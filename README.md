@@ -4,7 +4,7 @@ Python implementation of Maximum Causal Entropy Inverse Reinforcement Learning f
 
 Main file: ```max_causal_ent_irl.py```.
 
-Dependencies: ```numpy```, ```gym-0.8.2```.
+Dependencies: ```numpy```, ```gym```.
 
 ## Algorithm notes
 
