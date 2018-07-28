@@ -21,7 +21,7 @@ class MDP(object):
         if env is not None:
             P, nS, nA, desc = MDP.env2mdp(env)
             self.env = env
-            self.s = self.env.reset()
+            self.s = self.reset()
             self.P = P # state transition and reward probabilities, explained below
             self.nS = nS # number of states
             self.nA = nA # number of actions
@@ -47,7 +47,7 @@ class MDP(object):
         return T
 
     def reset(self):
-        self.s = self.env.reset()
+        self.s = 0
         return self.s
 
     def step(self, a, s=None):
