@@ -1,5 +1,7 @@
 import numpy as np
+from collections import defaultdict
 from copy import copy, deepcopy
+from gym import spaces
 from envs.utils import unique_perm, zeros_with_ones
 
 
@@ -22,6 +24,13 @@ class VasesEnvState(object):
 class VasesGrid(object):
     def __init__(self, spec, init_state):
         self.nA = 5
+        self.action_space = spaces.Discrete(self.nA)
+
+        self.r_vec = np.array([0,0,1,0,0,0], dtype='float32')
+        self.observation_space = spaces.Box(low=0, high=3, shape=self.r_vec.shape, dtype=np.float32)
+
+        self.timestep = 0
+
         self.spec = spec
         self.init_state = deepcopy(init_state)
         self.s = deepcopy(init_state)
@@ -102,7 +111,7 @@ class VasesGrid(object):
         for state_str, state_num_id in state_num.items():
             P[state_num_id] = {}
             for action in range(5):
-                statep = self.step(action, str_to_state(state_str))
+                statep = self.state_step(action, str_to_state(state_str))
                 statep_str = state_to_str(statep)
                 P[state_num_id][action] = [(1, state_num[statep_str], 0)]
 
@@ -156,11 +165,14 @@ class VasesGrid(object):
 
 
     def reset(self):
+        self.timestep = 0
         self.s = deepcopy(self.init_state)
 
 
-    def step(self, action, state=None):
+    def state_step(self, action, state=None):
         '''returns the next state given a state and an action'''
+        action = int(action)
+
         if state==None: state = self.s
         d_mask = self.spec.d_mask
         n = d_mask.shape[0]
@@ -232,6 +244,34 @@ class VasesGrid(object):
                             state.carrying[1] = 0
 
         return state
+
+
+    def step(self, action):
+        '''
+        given an action, takes a step from self.s, updates self.s and returns:
+        - the observation (features of the next state)
+        - the associated reward
+        - done, the indicator of completed episode
+        - info
+        '''
+        self.state_step(action)
+        obs = self.s_to_f(self.s)
+
+        self.timestep+=1
+        done = False
+        if self.timestep>50: done=True
+
+        info = defaultdict(lambda : '')
+        done = bool(done)
+        return np.array([obs]), np.array([obs.T @ self.r_vec]), np.array([done], dtype='bool'), [info]
+
+
+    def close(self):
+        self.reset()
+
+
+    def seed(self, seed=None):
+        pass
 
 
 def state_to_str(state):
