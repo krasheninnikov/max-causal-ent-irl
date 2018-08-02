@@ -22,22 +22,32 @@ class VasesEnvState(object):
 
 
 class VasesGrid(object):
-    def __init__(self, spec, init_state):
-        self.nA = 5
-        self.action_space = spaces.Discrete(self.nA)
-
-        self.r_vec = np.array([0,0,1,0,0,0], dtype='float32')
-        self.observation_space = spaces.Box(low=0, high=3, shape=self.r_vec.shape, dtype=np.float32)
-
-        self.timestep = 0
-
+    def __init__(self, spec, init_state, f_include_masks=False, compute_transitions=True):
         self.spec = spec
+
         self.init_state = deepcopy(init_state)
         self.s = deepcopy(init_state)
 
-        self.enumerate_states()
-        self.make_f_matrix()
-        self.get_deterministic_transitions()
+        self.nA = 5
+        self.action_space = spaces.Discrete(self.nA)
+
+        self.f_include_masks = f_include_masks
+        f_len = len(self.s_to_f(init_state))
+        self.r_vec = np.concatenate([np.array([0,0,1,0,0,0], dtype='float32'),
+                                     np.zeros(f_len-6, dtype='float32')])
+        self.observation_space = spaces.Box(low=0, high=255, shape=self.r_vec.shape, dtype=np.float32)
+
+        self.timestep = 0
+
+        if compute_transitions:
+            self.enumerate_states()
+            self.make_f_matrix()
+            self.get_deterministic_transitions()
+
+        # non-vital params PPO1 uses
+        self.reward_range = (0.0, 1.0)
+        self.metadata = defaultdict(lambda : '')
+        self.spec.id = 0
 
     def enumerate_states(self):
         carrying = np.zeros(2, dtype='bool')
@@ -143,7 +153,7 @@ class VasesGrid(object):
              self.f_matrix[state_num_id, :] = self.s_to_f(str_to_state(state_str))
 
 
-    def s_to_f(self, s):
+    def s_to_f(self, s, include_masks=None):
         '''
         returns features of the state:
         - Number of broken vases
@@ -153,6 +163,9 @@ class VasesGrid(object):
         - Number of vases on desks
         - Number of tablecloths on desks
         '''
+        if include_masks==None:
+            include_masks = self.f_include_masks
+
         vases_on_tables = np.logical_and(s.v_pos, self.spec.table_mask)
         tablecloths_on_tables = np.logical_and(s.t_pos, self.spec.table_mask)
         f = np.asarray([np.sum(s.bv_pos), # number of broken vases
@@ -161,12 +174,21 @@ class VasesGrid(object):
              np.sum(np.logical_and(s.t_pos, self.spec.bv_mask)), # number of tablecloths on the floor
              np.sum(np.logical_xor(vases_on_tables, np.logical_and(s.v_pos, s.d_pos))), # vases on desks
              np.sum(np.logical_xor(tablecloths_on_tables, np.logical_and(s.t_pos, s.d_pos)))]) # tablecloths on desks
-        return f
+
+        f_mask = np.array([])
+        if include_masks:
+            f_mask = np.array(list(state_to_str(s).split(',')[-1]), dtype='float32')
+
+
+        return np.concatenate([f, f_mask])
 
 
     def reset(self):
         self.timestep = 0
         self.s = deepcopy(self.init_state)
+
+        obs = self.s_to_f(self.s)
+        return np.array(obs, dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
 
 
     def state_step(self, action, state=None):
@@ -255,15 +277,15 @@ class VasesGrid(object):
         - info
         '''
         self.state_step(action)
-        obs = self.s_to_f(self.s)
-
         self.timestep+=1
+
+        obs = self.s_to_f(self.s)
         done = False
-        if self.timestep>50: done=True
+        if self.timestep>500: done=True
 
         info = defaultdict(lambda : '')
-        done = bool(done)
-        return np.array([obs]), np.array([obs.T @ self.r_vec]), np.array([done], dtype='bool'), [info]
+        # return np.array([obs], dtype='float32'), np.array([obs.T @ self.r_vec]), np.array([done], dtype='bool'), [info]
+        return np.array(obs, dtype='float32'), np.array(obs.T @ self.r_vec), np.array(done, dtype='bool'), info
 
 
     def close(self):
@@ -272,6 +294,15 @@ class VasesGrid(object):
 
     def seed(self, seed=None):
         pass
+
+
+    def reset(self):
+        self.timestep = 0
+        self.s = deepcopy(self.init_state)
+
+        obs = self.s_to_f(self.s)
+        return np.array([obs], dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
+
 
 
 def state_to_str(state):
