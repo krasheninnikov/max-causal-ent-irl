@@ -284,7 +284,6 @@ class VasesGrid(object):
         if self.timestep>500: done=True
 
         info = defaultdict(lambda : '')
-        # return np.array([obs], dtype='float32'), np.array([obs.T @ self.r_vec]), np.array([done], dtype='bool'), [info]
         return np.array(obs, dtype='float32'), np.array(obs.T @ self.r_vec), np.array(done, dtype='bool'), info
 
 
