@@ -328,3 +328,42 @@ def vi_boltzmann_deterministic(mdp, gamma, r, horizon=None,  temperature=1,
             policy = expt(Q - V)
 
         return V, Q, policy
+
+
+
+def vi_rational_deterministic(mdp, gamma, r, horizon=None, threshold=1e-4, init_V=None):
+
+    if init_V is None:
+        V = np.copy(r)
+    else:
+        V = np.copy(init_V.flatten())
+
+    t = 0
+    diff = float("inf")
+    while diff > threshold:
+        V_prev = np.copy(V)
+
+        # Q[s,a] = (r_s + gamma * \sum_{s'} p(s'|s,a)V_{s'})
+        # Q = r.reshape((-1,1)) + gamma * np.dot(mdp.T, V_prev)
+        Q = np.tile(r, (mdp.nA, 1)).T
+        for a in range(mdp.nA):
+            Q[:, a] += gamma * V[mdp.deterministic_T[:, a]]
+
+
+        # V_s = max_a(Q_sa)
+        V = np.amax(Q, axis=1)
+
+        diff = np.amax(abs(V_prev - V))
+
+        t+=1
+        if horizon is not None:
+            if t==horizon: break
+
+    V = V.reshape((-1, 1))
+
+    # Compute policy
+    # Assigns equal probability to taking actions whose Q_sa == max_a(Q_sa)
+    max_Q_index = (Q == np.tile(np.amax(Q,axis=1),(mdp.nA,1)).T)
+    policy = max_Q_index / np.sum(max_Q_index, axis=1).reshape((-1,1))
+
+    return V, Q, policy
