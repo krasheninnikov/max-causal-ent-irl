@@ -331,7 +331,7 @@ def vi_boltzmann_deterministic(mdp, gamma, r, horizon=None,  temperature=1,
 
 
 
-def vi_rational_deterministic(mdp, gamma, r, horizon=None, threshold=1e-4, init_V=None):
+def vi_rational_deterministic(mdp, r, gamma=1, horizon=None, threshold=1e-4, init_V=None):
 
     if init_V is None:
         V = np.copy(r)
