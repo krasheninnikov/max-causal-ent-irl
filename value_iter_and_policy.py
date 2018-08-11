@@ -331,7 +331,7 @@ def vi_boltzmann_deterministic(mdp, gamma, r, horizon=None,  temperature=1,
 
 
 
-def vi_rational_deterministic(mdp, r, gamma=1, horizon=None, threshold=1e-4, init_V=None):
+def vi_rational_deterministic(mdp, r, gamma=1, horizon=None, threshold=1e-4, init_V=None, reverse=False):
 
     if init_V is None:
         V = np.copy(r)
@@ -347,7 +347,10 @@ def vi_rational_deterministic(mdp, r, gamma=1, horizon=None, threshold=1e-4, ini
         # Q = r.reshape((-1,1)) + gamma * np.dot(mdp.T, V_prev)
         Q = np.tile(r, (mdp.nA, 1)).T
         for a in range(mdp.nA):
-            Q[:, a] += gamma * V[mdp.deterministic_T[:, a]]
+            if reverse:
+                Q[:, a] += gamma * V[mdp.deterministic_transpose[:, a]]
+            else:
+                Q[:, a] += gamma * V[mdp.deterministic_T[:, a]]
 
 
         # V_s = max_a(Q_sa)

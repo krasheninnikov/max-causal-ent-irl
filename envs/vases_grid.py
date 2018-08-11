@@ -43,6 +43,7 @@ class VasesGrid(object):
             self.enumerate_states()
             self.make_f_matrix()
             self.get_deterministic_transitions()
+            self.get_deterministic_transitions_transpose()
 
         # non-vital params PPO1 uses
         self.reward_range = (0.0, 1.0)
@@ -145,6 +146,13 @@ class VasesGrid(object):
         for s in range(self.nS):
             for a in range(self.nA):
                 self.deterministic_T[s,a]=self.P[s][a][0][1]
+                
+    def get_deterministic_transitions_transpose(self):
+        '''Create self.deterministic_transpose, a matrix with index S,A -> S', with the inverse dynamics '''
+        self.deterministic_transpose = np.zeros((self.nS, self.nA), dtype='int32')
+        for s in range(self.nS):
+            for a in range(self.nA):
+                self.deterministic_transpose[self.P[s][a][0][1],a]=s
 
 
     def make_f_matrix(self):
