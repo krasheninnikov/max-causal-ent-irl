@@ -252,6 +252,11 @@ def vi_boltzmann_deterministic(mdp, gamma, r, horizon=None,  temperature=1,
         ----------
         mdp : object
             Instance of the MDP class.
+
+            mdp.deterministic_T is a |S| by |A| matrix in which each (s,a)-th entry
+            is the state s' to which one would (deterministically) transition by
+            taking action a from state s.
+
         gamma : float
             Discount factor; 0<=gamma<=1.
         r : 1D numpy array
@@ -280,11 +285,7 @@ def vi_boltzmann_deterministic(mdp, gamma, r, horizon=None,  temperature=1,
         diff = float("inf")
         while diff > threshold:
             V_prev = np.copy(V)
-################################################################################
-            # ∀ s,a: Q[s,a] = (r_s + gamma * \sum_{s'} p(s'|s,a)V_{s'})
-            # Q = r.reshape((-1,1)) + gamma * np.dot(mdp.T, V_prev)
 
-            # TODO figure out how to compute Q fastest without the transition matrix
             Q = np.tile(r, (mdp.nA, 1)).T
             for a in range(mdp.nA):
                 Q[:, a] += gamma * V[mdp.deterministic_T[:, a]]
@@ -332,7 +333,11 @@ def vi_boltzmann_deterministic(mdp, gamma, r, horizon=None,  temperature=1,
 
 
 def vi_rational_deterministic(mdp, r, gamma=1, horizon=None, threshold=1e-4, init_V=None, reverse=False):
-
+    '''
+    mdp.deterministic_T is a |S| by |A| matrix in which each (s,a)-th entry
+    is the state s' to which one would (deterministically) transition by
+    taking action a from state s.
+    '''
     if init_V is None:
         V = np.copy(r)
     else:
