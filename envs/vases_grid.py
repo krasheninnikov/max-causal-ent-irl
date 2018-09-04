@@ -311,7 +311,7 @@ class VasesGrid(object):
         return np.array([obs], dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
 
 
-    def state_to_str(state):
+    def state_to_str(self, state):
         '''
         returns a string encoding of a state to serve as key in the state dictionary
         '''
@@ -327,7 +327,7 @@ class VasesGrid(object):
         return string.replace(" ", "")
 
 
-    def str_to_state(string):
+    def str_to_state(self, string):
         '''
         returns a state from a string encoding
         assumes states are represented as binary masks
@@ -369,7 +369,7 @@ class VasesGrid(object):
         return VasesEnvState(d_pos, v_pos, bv_pos, a_pos, t_pos, carrying, table_pos)
 
 
-    def print_state(state):
+    def print_state(self, state):
         '''
         Renders the state. Each tile in the gridworld corresponds to a 2x2 cell in
         the rendered state.

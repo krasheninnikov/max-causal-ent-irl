@@ -246,67 +246,67 @@ class BoxesEnv(object):
         obs = self.s_to_f(self.s)
         return np.array([obs], dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
 
-    def print_state(state, spec):
-    '''
-    TODO: Describe appearance of printed state
-    '''
-    rows = state.b_pos.shape[0]
-    cols = state.b_pos.shape[1]
+    def print_state(self, state, spec):
+        '''
+        TODO: Describe appearance of printed state
+        '''
+        rows = state.b_pos.shape[0]
+        cols = state.b_pos.shape[1]
 
-    canvas = np.zeros(tuple([2*rows-1, 2*cols+1]), dtype='int8')
+        canvas = np.zeros(tuple([2*rows-1, 2*cols+1]), dtype='int8')
 
-    # cell borders
-    for i in range(1, canvas.shape[0], 2):
-        canvas[i, :] = 1
-    for j in range(0, canvas.shape[1], 2):
-        canvas[:, j] = 2
+        # cell borders
+        for i in range(1, canvas.shape[0], 2):
+            canvas[i, :] = 1
+        for j in range(0, canvas.shape[1], 2):
+            canvas[:, j] = 2
 
-    # agent
-    for i in range(n):
-        for j in range(m):
-            if state.a_pos[i, j]==1:
-                canvas[2*i+1, 2*j+1] = 3
+        # agent
+        for i in range(n):
+            for j in range(m):
+                if state.a_pos[i, j]==1:
+                    canvas[2*i+1, 2*j+1] = 3
 
-    # boxes
-    for i in range(n):
-        for j in range(m):
-            if state.b_pos[i, j]==1:
-                canvas[2*i+1, 2*j+1] = 4
-    # goal
-    for i in range(n):
-        for j in range(m):
-            if spec.goal_mask[i, j]==1:
-                canvas[2*i, 2*j+2] = 5
+        # boxes
+        for i in range(n):
+            for j in range(m):
+                if state.b_pos[i, j]==1:
+                    canvas[2*i+1, 2*j+1] = 4
+        # goal
+        for i in range(n):
+            for j in range(m):
+                if spec.goal_mask[i, j]==1:
+                    canvas[2*i, 2*j+2] = 5
 
-    # walls
-    for i in range(n):
-        for j in range(m):
-            if spec.wall_mask[i, j]==1:
-                canvas[2*i, 2*j+2] = 6
+        # walls
+        for i in range(n):
+            for j in range(m):
+                if spec.wall_mask[i, j]==1:
+                    canvas[2*i, 2*j+2] = 6
 
-    black_color = '\x1b[0m'
-    purple_background_color = '\x1b[0;35;85m'
+        black_color = '\x1b[0m'
+        purple_background_color = '\x1b[0;35;85m'
 
-    for line in canvas:
-        for char_num in line:
-            if char_num==0:
-                print('\u2003', end='')
-            elif char_num==1:
-                print('─', end='')
-            elif char_num==2:
-                print('│', end='')
-            elif char_num==3:
-                print('\x1b[0;33;85m█'+black_color, end='')
-            elif char_num==4:
-                print('\x1b[0;32;85m█'+black_color , end='')
-            elif char_num==5:
-                print(purple_background_color+'█'+black_color, end='')
-            elif char_num==6:
-                print('\033[91m█'+black_color, end='')
-        print('')
+        for line in canvas:
+            for char_num in line:
+                if char_num==0:
+                    print('\u2003', end='')
+                elif char_num==1:
+                    print('─', end='')
+                elif char_num==2:
+                    print('│', end='')
+                elif char_num==3:
+                    print('\x1b[0;33;85m█'+black_color, end='')
+                elif char_num==4:
+                    print('\x1b[0;32;85m█'+black_color , end='')
+                elif char_num==5:
+                    print(purple_background_color+'█'+black_color, end='')
+                elif char_num==6:
+                    print('\033[91m█'+black_color, end='')
+            print('')
 
 
-    def state_to_str(state):
+    def state_to_str(self, state):
         '''
         returns a string encoding of a state to serve as key in the state dictionary
         '''
@@ -316,7 +316,7 @@ class BoxesEnv(object):
         return string
 
 
-    def str_to_state(string):
+    def str_to_state(self, string):
         '''
         returns a state from a string encoding
         assumes states are represented as binary masks
