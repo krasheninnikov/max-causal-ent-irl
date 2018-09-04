@@ -57,30 +57,36 @@ class BoxesEnv(object):
             # Possible box positions
             for b_pos in unique_perm(zeros_with_ones(n_b_pos, self.spec.n_b)):
                 b_mask_pos = np.zeros_like(self.spec.box_mask.flatten())
-                np.put(b_mask_pos, np.where(self.spec.box_mask.flatten()), b_pos[:-1])
+                np.put(b_mask_pos, np.where(self.spec.box_mask.flatten()), b_pos)
                 b_mask_pos = b_mask_pos.reshape(self.spec.box_mask.shape)
 
-                state = BoxesEnvState(agent_mask_pos, b_mask_pos)
-                state_str = state_to_str(state)
+                if not b_mask_pos[np.where(agent_mask_pos)[0][0]][np.where(agent_mask_pos)[1][0]]:
+                    state = BoxesEnvState(agent_mask_pos, b_mask_pos)
+                    state_str = self.state_to_str(state)
+                    # print("Enumerating")
+                    # print(state.a_pos.astype(int))
+                    # print(state.b_pos.astype(int))
+                    # print()
+                    # import pdb; pdb.set_trace()
 
-                if state_str not in state_num:
-                    state_num[state_str] = len(state_num)
+                    if state_str not in state_num:
+                        state_num[state_str] = len(state_num)
 
         # Take every possible action from each of the possible states. Since the
         # env is deterministic, this is sufficient to get transition probs
         for state_str, state_num_id in state_num.items():
             P[state_num_id] = {}
             for action in range(self.nA):
-                statep = self.state_step(action, str_to_state(state_str))
-                print(action)
-                print(str_to_state(state_str).a_pos)
-                print(str_to_state(state_str).b_pos)
-                print()
-                print(statep.a_pos)
-                print(statep.b_pos)
-                print()
-                print()
-                statep_str = state_to_str(statep)
+                statep = self.state_step(action, self.str_to_state(state_str))
+                # print(action)
+                # print(str_to_state(state_str).a_pos.astype(int))
+                # print(str_to_state(state_str).b_pos.astype(int))
+                # print()
+                # print(statep.a_pos.astype(int))
+                # print(statep.b_pos.astype(int))
+                # print()
+                # print()
+                statep_str = self.state_to_str(statep)
                 P[state_num_id][action] = [(1, state_num[statep_str], 0)]
 
         self.state_num = state_num
@@ -115,7 +121,7 @@ class BoxesEnv(object):
     def make_f_matrix(self):
          self.f_matrix = np.zeros((self.nS, self.nF))
          for state_str, state_num_id in self.state_num.items():
-             self.f_matrix[state_num_id, :] = self.s_to_f(str_to_state(state_str))
+             self.f_matrix[state_num_id, :] = self.s_to_f(self.self.str_to_state(state_str))
 
 
     def s_to_f(self, s, include_masks=None):
@@ -144,7 +150,7 @@ class BoxesEnv(object):
 
         f_mask = np.array([])
         if include_masks:
-            f_mask = np.array(list(state_to_str(s).split(',')[-1]), dtype='float32')
+            f_mask = np.array(list(self.state_to_str(s).split(',')[-1]), dtype='float32')
 
         return np.concatenate([f, f_mask])
 
@@ -240,54 +246,9 @@ class BoxesEnv(object):
         obs = self.s_to_f(self.s)
         return np.array([obs], dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
 
-
-def state_to_str(state):
+    def print_state(state, spec):
     '''
-    returns a string encoding of a state to serve as key in the state dictionary
-    '''
-    string = str(state.a_pos.shape[0]) + "," + str(state.a_pos.shape[1]) + ","
-    string += np.array_str(state.a_pos.flatten().astype(int))
-    string += np.array_str(state.b_pos.flatten().astype(int))
-    return string
-
-
-def str_to_state(string):
-    '''
-    returns a state from a string encoding
-    assumes states are represented as binary masks
-    '''
-    cpos = string.find(",")
-    rows = int(string[:cpos])
-    string = string[cpos+1:]
-
-    cpos = string.find(",")
-    cols = int(string[:cpos])
-    string = string[cpos+1:]
-
-    cpos = string.find("]")
-    a_pos = string[1:cpos].split(" ")
-    a_pos = np.array(a_pos).reshape(rows, cols)
-    string = string[cpos+1:]
-
-    cpos = string.find("]")
-    b_pos = string[1:cpos].split(" ")
-    b_pos = np.array(b_pos).reshape(rows, cols)
-
-    return BoxesEnvState(a_pos, b_pos)
-
-
-def print_state(state, spec):
-    '''
-    Renders the state. Each tile in the gridworld corresponds to a cell in
-    the rendered state.
-    - Green tiles correspond to vases
-    - Red tiles correspond to broken vases
-    - Brown tiles correspond to tables
-    - Purple tiles correspond to tablecloths
-    - The arrow and its direction correspond to the agent and its rotation. The
-      background color of the arrow corresponds to the object the agent is
-      carrying. The agent is rendered in the same subcell as tables are since
-      the agent and the table are never in the same cell.
+    TODO: Describe appearance of printed state
     '''
     rows = state.b_pos.shape[0]
     cols = state.b_pos.shape[1]
@@ -343,3 +304,38 @@ def print_state(state, spec):
             elif char_num==6:
                 print('\033[91m█'+black_color, end='')
         print('')
+
+
+    def state_to_str(state):
+        '''
+        returns a string encoding of a state to serve as key in the state dictionary
+        '''
+        string = str(state.a_pos.shape[0]) + "," + str(state.a_pos.shape[1]) + ","
+        string += np.array_str(state.a_pos.flatten().astype(int))
+        string += np.array_str(state.b_pos.flatten().astype(int))
+        return string
+
+
+    def str_to_state(string):
+        '''
+        returns a state from a string encoding
+        assumes states are represented as binary masks
+        '''
+        cpos = string.find(",")
+        rows = int(string[:cpos])
+        string = string[cpos+1:]
+
+        cpos = string.find(",")
+        cols = int(string[:cpos])
+        string = string[cpos+1:]
+
+        cpos = string.find("]")
+        a_pos = string[1:cpos].split(" ")
+        a_pos = np.array(a_pos).reshape(rows, cols)
+        string = string[cpos+1:]
+
+        cpos = string.find("]")
+        b_pos = string[1:cpos].split(" ")
+        b_pos = np.array(b_pos).reshape(rows, cols)
+
+        return BoxesEnvState(a_pos, b_pos)

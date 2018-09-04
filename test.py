@@ -4,7 +4,7 @@ import datetime
 import numpy as np
 import sys
 
-from envs.vases_grid import VasesGrid, VasesEnvState, print_state, str_to_state, state_to_str
+from envs.vases_grid import VasesGrid, VasesEnvState
 from envs.vases_spec import VasesEnvState2x3V2D3, VasesEnvSpec2x3V2D3, VasesEnvState2x3Broken, VasesEnvSpec2x3Broken
 
 from envs.irreversible_side_effects import BoxesEnv
@@ -23,12 +23,12 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None):
     if current_s is None: 
         env.reset()
     else:
-        env.s = str_to_state(env.num_state[np.where(current_s)[0][0]])
-    print_state(env.s); print()
+        env.s = env.str_to_state(env.num_state[np.where(current_s)[0][0]])
+    env.print_state(env.s); print()
     for i in range(steps_printed):
-        a = np.random.choice(5,p=policy[env.state_num[state_to_str(env.s)],:])
+        a = np.random.choice(5,p=policy[env.state_num[env.state_to_str(env.s)],:])
         env.state_step(a)
-        print_state(env.s)
+        env.print_state(env.s)
         
         obs = env.s_to_f(env.s)
         
@@ -53,11 +53,11 @@ def experiment_wrapper(env='vases',
         raise ValueError('Unknown environment: {}'.format(args.env))
 
     print('Initial state:')
-    print_state(env.init_state)
+    env.print_state(env.init_state)
 
     if not uniform:
         p_0=np.zeros(env.nS)
-        p_0[env.state_num[state_to_str(env.init_state)]] = 1
+        p_0[env.state_num[env.state_to_str(env.init_state)]] = 1
     else:
         p_0=np.ones(env.nS) / env.nS
     
@@ -155,6 +155,7 @@ def setup_experiment(args):
 def main():
     args = parse_args()
     indep_vars_dict, control_vars_dict, dependent_vars = setup_experiment(args)
+    print(indep_vars_dict, control_vars_dict, dependent_vars)
     # For now, restrict to zero or one independent variables, but it
     # could be generalized to two variables
     if len(indep_vars_dict) == 0:

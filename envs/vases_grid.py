@@ -112,7 +112,7 @@ class VasesGrid(object):
                                                   t_mask_pos,
                                                   carrying,
                                                   self.spec.table_mask)
-                            state_str = state_to_str(state)
+                            state_str = self.state_to_str(state)
 
                             if state_str not in state_num:
                                 state_num[state_str] = len(state_num)
@@ -122,8 +122,8 @@ class VasesGrid(object):
         for state_str, state_num_id in state_num.items():
             P[state_num_id] = {}
             for action in range(5):
-                statep = self.state_step(action, str_to_state(state_str))
-                statep_str = state_to_str(statep)
+                statep = self.state_step(action, self.str_to_state(state_str))
+                statep_str = self.state_to_str(statep)
                 P[state_num_id][action] = [(1, state_num[statep_str], 0)]
 
         self.state_num = state_num
@@ -158,7 +158,7 @@ class VasesGrid(object):
     def make_f_matrix(self):
          self.f_matrix = np.zeros((self.nS, 6))
          for state_str, state_num_id in self.state_num.items():
-             self.f_matrix[state_num_id, :] = self.s_to_f(str_to_state(state_str))
+             self.f_matrix[state_num_id, :] = self.s_to_f(self.str_to_state(state_str))
 
 
     def s_to_f(self, s, include_masks=None):
@@ -185,7 +185,7 @@ class VasesGrid(object):
 
         f_mask = np.array([])
         if include_masks:
-            f_mask = np.array(list(state_to_str(s).split(',')[-1]), dtype='float32')
+            f_mask = np.array(list(self.state_to_str(s).split(',')[-1]), dtype='float32')
 
 
         return np.concatenate([f, f_mask])
@@ -311,160 +311,159 @@ class VasesGrid(object):
         return np.array([obs], dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
 
 
+    def state_to_str(state):
+        '''
+        returns a string encoding of a state to serve as key in the state dictionary
+        '''
+        string = str(state.d_pos.shape[0]) + "," + str(state.d_pos.shape[1]) + ","
+        string += np.array_str(state.d_pos.flatten().astype(int))[1:-1]
+        string += np.array_str(state.v_pos.flatten().astype(int))[1:-1]
+        string += np.array_str(state.bv_pos.flatten().astype(int))[1:-1]
+        string += np.array_str(state.t_pos.flatten().astype(int))[1:-1]
+        string += np.array_str(state.table_pos.flatten().astype(int))[1:-1]
+        string += np.array_str(state.a_pos.flatten().astype(int))[1:-1]
+        string += np.array_str(np.asarray(state.carrying).astype(int))[1:-1]
 
-def state_to_str(state):
-    '''
-    returns a string encoding of a state to serve as key in the state dictionary
-    '''
-    string = str(state.d_pos.shape[0]) + "," + str(state.d_pos.shape[1]) + ","
-    string += np.array_str(state.d_pos.flatten().astype(int))[1:-1]
-    string += np.array_str(state.v_pos.flatten().astype(int))[1:-1]
-    string += np.array_str(state.bv_pos.flatten().astype(int))[1:-1]
-    string += np.array_str(state.t_pos.flatten().astype(int))[1:-1]
-    string += np.array_str(state.table_pos.flatten().astype(int))[1:-1]
-    string += np.array_str(state.a_pos.flatten().astype(int))[1:-1]
-    string += np.array_str(np.asarray(state.carrying).astype(int))[1:-1]
-
-    return string.replace(" ", "")
-
-
-def str_to_state(string):
-    '''
-    returns a state from a string encoding
-    assumes states are represented as binary masks
-    '''
-    rpos = string.find(",")
-    rows = int(string[:rpos])
-    string = string[rpos+1:]
-
-    cpos = string.find(",")
-    cols = int(string[:cpos])
-    string = string[cpos+1:]
-
-    d_pos = np.asarray(list(string[:rows*cols]))
-    d_pos = (d_pos > '0').reshape(rows, cols)
-    string = string[rows*cols:]
-
-    v_pos = np.asarray(list(string[:rows*cols]))
-    v_pos = (v_pos > '0').reshape(rows, cols)
-    string = string[rows*cols:]
-
-    bv_pos = np.asarray(list(string[:rows*cols]))
-    bv_pos = (bv_pos > '0').reshape(rows, cols)
-    string = string[rows*cols:]
-
-    t_pos = np.asarray(list(string[:rows*cols]))
-    t_pos = (t_pos > '0').reshape(rows, cols)
-    string = string[rows*cols:]
-
-    table_pos = np.asarray(list(string[:rows*cols]))
-    table_pos = (table_pos > '0').reshape(rows, cols)
-    string = string[rows*cols:]
-
-    a_pos = np.asarray(list(string[:4*rows*cols]))
-    a_pos = (a_pos > '0').reshape(4, rows, cols)
-    string = string[4*rows*cols:]
-
-    carrying = [int(string[0]), int(string[1])]
-
-    return VasesEnvState(d_pos, v_pos, bv_pos, a_pos, t_pos, carrying, table_pos)
+        return string.replace(" ", "")
 
 
-def print_state(state):
-    '''
-    Renders the state. Each tile in the gridworld corresponds to a 2x2 cell in
-    the rendered state.
-    - Green tiles correspond to vases
-    - Red tiles correspond to broken vases
-    - Brown tiles correspond to tables
-    - Purple tiles correspond to tablecloths
-    - The arrow and its direction correspond to the agent and its rotation. The
-      background color of the arrow corresponds to the object the agent is
-      carrying. The agent is rendered in the same subcell as tables are since
-      the agent and the table are never in the same cell.
-    '''
-    n = state.d_pos.shape[0]
-    m = state.d_pos.shape[1]
+    def str_to_state(string):
+        '''
+        returns a state from a string encoding
+        assumes states are represented as binary masks
+        '''
+        rpos = string.find(",")
+        rows = int(string[:rpos])
+        string = string[rpos+1:]
 
-    canvas = np.zeros(tuple([3*n-1, 3*m+1]), dtype='int8')
+        cpos = string.find(",")
+        cols = int(string[:cpos])
+        string = string[cpos+1:]
 
-    # cell borders
-    for i in range(2, canvas.shape[0], 3):
-        canvas[i, :] = 1
-    for j in range(0, canvas.shape[1], 3):
-        canvas[:, j] = 2
+        d_pos = np.asarray(list(string[:rows*cols]))
+        d_pos = (d_pos > '0').reshape(rows, cols)
+        string = string[rows*cols:]
 
-    # desks
-    for i in range(n):
-        for j in range(m):
-            if state.d_pos[i, j]==1:
-                canvas[3*i+1, 3*j+1] = 3
+        v_pos = np.asarray(list(string[:rows*cols]))
+        v_pos = (v_pos > '0').reshape(rows, cols)
+        string = string[rows*cols:]
 
-    # vases
-    for i in range(n):
-        for j in range(m):
-            if state.v_pos[i, j]==1:
-                canvas[3*i, 3*j+2] = 4
+        bv_pos = np.asarray(list(string[:rows*cols]))
+        bv_pos = (bv_pos > '0').reshape(rows, cols)
+        string = string[rows*cols:]
 
-    # tablecloths
-    for i in range(n):
-        for j in range(m):
-            if state.t_pos[i, j]==1:
-                canvas[3*i, 3*j+1] = 5
+        t_pos = np.asarray(list(string[:rows*cols]))
+        t_pos = (t_pos > '0').reshape(rows, cols)
+        string = string[rows*cols:]
 
-    # broken vases
-    for i in range(n):
-        for j in range(m):
-            if state.bv_pos[i, j]==1:
-                canvas[3*i+1, 3*j+2] = 6
+        table_pos = np.asarray(list(string[:rows*cols]))
+        table_pos = (table_pos > '0').reshape(rows, cols)
+        string = string[rows*cols:]
 
-    # agent
-    for rotation in range(4):
+        a_pos = np.asarray(list(string[:4*rows*cols]))
+        a_pos = (a_pos > '0').reshape(4, rows, cols)
+        string = string[4*rows*cols:]
+
+        carrying = [int(string[0]), int(string[1])]
+
+        return VasesEnvState(d_pos, v_pos, bv_pos, a_pos, t_pos, carrying, table_pos)
+
+
+    def print_state(state):
+        '''
+        Renders the state. Each tile in the gridworld corresponds to a 2x2 cell in
+        the rendered state.
+        - Green tiles correspond to vases
+        - Red tiles correspond to broken vases
+        - Brown tiles correspond to tables
+        - Purple tiles correspond to tablecloths
+        - The arrow and its direction correspond to the agent and its rotation. The
+        background color of the arrow corresponds to the object the agent is
+        carrying. The agent is rendered in the same subcell as tables are since
+        the agent and the table are never in the same cell.
+        '''
+        n = state.d_pos.shape[0]
+        m = state.d_pos.shape[1]
+
+        canvas = np.zeros(tuple([3*n-1, 3*m+1]), dtype='int8')
+
+        # cell borders
+        for i in range(2, canvas.shape[0], 3):
+            canvas[i, :] = 1
+        for j in range(0, canvas.shape[1], 3):
+            canvas[:, j] = 2
+
+        # desks
         for i in range(n):
             for j in range(m):
-                if state.a_pos[rotation, i, j]==1:
-                    canvas[3*i+1, 3*j+1] = 7+rotation
+                if state.d_pos[i, j]==1:
+                    canvas[3*i+1, 3*j+1] = 3
 
-    # tables; it's important for this for loop to be after the d_pos for loop
-    # since table_pos is in d_pos
-    for i in range(n):
-        for j in range(m):
-            if state.table_pos[i, j]==1:
-                canvas[3*i+1, 3*j+1] = 11
+        # vases
+        for i in range(n):
+            for j in range(m):
+                if state.v_pos[i, j]==1:
+                    canvas[3*i, 3*j+2] = 4
 
-    black_color = '\x1b[0m'
-    purple_background_color = '\x1b[0;35;85m'
+        # tablecloths
+        for i in range(n):
+            for j in range(m):
+                if state.t_pos[i, j]==1:
+                    canvas[3*i, 3*j+1] = 5
 
-    agent_color = black_color
-    if state.carrying[0] == 1:
-        agent_color = '\x1b[1;42;42m'
-    if state.carrying[1] == 1:
-        agent_color = '\x1b[1;45;45m'
+        # broken vases
+        for i in range(n):
+            for j in range(m):
+                if state.bv_pos[i, j]==1:
+                    canvas[3*i+1, 3*j+2] = 6
 
-    for line in canvas:
-        for char_num in line:
-            if char_num==0:
-                print('\u2003', end='')
-            elif char_num==1:
-                print('─', end='')
-            elif char_num==2:
-                print('│', end='')
-            elif char_num==3:
-                print('\x1b[0;33;85m█'+black_color, end='')
-            elif char_num==4:
-                print('\x1b[0;32;85m█'+black_color , end='')
-            elif char_num==5:
-                print(purple_background_color+'█'+black_color, end='')
-            elif char_num==6:
-                print('\033[91m█'+black_color, end='')
-            elif char_num==7:
-                print(agent_color+'↑'+black_color, end='')
-            elif char_num==8:
-                print(agent_color+'→'+black_color, end='')
-            elif char_num==9:
-                print(agent_color+'↓'+black_color, end='')
-            elif char_num==10:
-                print(agent_color+'←'+black_color, end='')
-            elif char_num==11:
-                print('\033[93m█'+black_color, end='')
-        print('')
+        # agent
+        for rotation in range(4):
+            for i in range(n):
+                for j in range(m):
+                    if state.a_pos[rotation, i, j]==1:
+                        canvas[3*i+1, 3*j+1] = 7+rotation
+
+        # tables; it's important for this for loop to be after the d_pos for loop
+        # since table_pos is in d_pos
+        for i in range(n):
+            for j in range(m):
+                if state.table_pos[i, j]==1:
+                    canvas[3*i+1, 3*j+1] = 11
+
+        black_color = '\x1b[0m'
+        purple_background_color = '\x1b[0;35;85m'
+
+        agent_color = black_color
+        if state.carrying[0] == 1:
+            agent_color = '\x1b[1;42;42m'
+        if state.carrying[1] == 1:
+            agent_color = '\x1b[1;45;45m'
+
+        for line in canvas:
+            for char_num in line:
+                if char_num==0:
+                    print('\u2003', end='')
+                elif char_num==1:
+                    print('─', end='')
+                elif char_num==2:
+                    print('│', end='')
+                elif char_num==3:
+                    print('\x1b[0;33;85m█'+black_color, end='')
+                elif char_num==4:
+                    print('\x1b[0;32;85m█'+black_color , end='')
+                elif char_num==5:
+                    print(purple_background_color+'█'+black_color, end='')
+                elif char_num==6:
+                    print('\033[91m█'+black_color, end='')
+                elif char_num==7:
+                    print(agent_color+'↑'+black_color, end='')
+                elif char_num==8:
+                    print(agent_color+'→'+black_color, end='')
+                elif char_num==9:
+                    print(agent_color+'↓'+black_color, end='')
+                elif char_num==10:
+                    print(agent_color+'←'+black_color, end='')
+                elif char_num==11:
+                    print('\033[93m█'+black_color, end='')
+            print('')
