@@ -58,7 +58,7 @@ def compute_D(mdp, gamma, policy, P_0=None, t_max=None, threshold=1e-6):
     return D
 
 
-def compute_D_deterministic(mdp, gamma, policy, P_0=None, t_max=None, threshold=1e-6):
+def compute_d_deterministic(mdp, gamma, policy, P_0=None, t_max=None, threshold=1e-6):
     '''
     Same as compute_D, but works only for deterministic dynamics and is faster
     '''
@@ -86,3 +86,29 @@ def compute_D_deterministic(mdp, gamma, policy, P_0=None, t_max=None, threshold=
             if t==t_max: break
 
     return D
+
+
+def compute_d_last_step_deterministic(mdp, policy, p_0, T, verbose=False, return_all=False):
+    '''Computes the last-step occupancy measure'''
+    D_prev = p_0
+    d_last_step_list = [D_prev]
+
+    t = 0
+    for t in range(T):
+
+        # for T-step OM we'd do D=np.copy(P_0). However, we want the last step one, so:
+        D = np.zeros_like(p_0)
+
+        for s in range(mdp.nS):
+            for a in range(mdp.nA):
+                # due to env being deterministic, sprime=self.P[s][a][0][1] and p_sprime=1
+                D[mdp.P[s][a][0][1]] += D_prev[s] * policy[s, a]
+
+        D_prev = np.copy(D)
+        if verbose is True: print(D)
+        if return_all: d_last_step_list.append(D)
+
+    if return_all:
+        return D, d_last_step_list
+    else:
+        return D
