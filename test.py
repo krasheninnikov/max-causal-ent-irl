@@ -8,13 +8,17 @@ from envs.vases_grid import VasesGrid, VasesEnvState
 from envs.vases_spec import VasesEnvState2x3V2D3, VasesEnvSpec2x3V2D3, VasesEnvState2x3Broken, VasesEnvSpec2x3Broken
 
 from envs.irreversible_side_effects import BoxesEnv
-from envs.side_effects_spec import BoxesEnvSpec6x6, BoxesEnvState6x6
+from envs.side_effects_spec import BoxesEnvSpec7x9, BoxesEnvNoWallState7x9, BoxesEnvWallState7x9
+from envs.side_effects_spec import BoxesEnvSpec6x7, BoxesEnvNoWallState6x7, BoxesEnvWallState6x7
 
 from envs.utils import unique_perm, zeros_with_ones, printoptions
 
 from last_step_om_features import om_method, compute_d_last_step_discrete
 
 from value_iter_and_policy import vi_boltzmann, vi_boltzmann_deterministic
+
+def custom_norm(v):
+    return v / np.linalg.norm(v)
 
 def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None):
     '''Given an env and R, runs soft VI for h steps and rolls out the resulting policy'''
@@ -24,11 +28,12 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None):
         env.reset()
     else:
         env.s = env.str_to_state(env.num_state[np.where(current_s)[0][0]])
-    env.print_state(env.s); print()
+    env.print_state(env.s, env.spec); print()
     for i in range(steps_printed):
-        a = np.random.choice(5,p=policy[env.state_num[env.state_to_str(env.s)],:])
-        env.state_step(a)
-        env.print_state(env.s)
+        env.print_state(env.s, env.spec)
+        a = np.random.choice(env.nA, p=policy[env.state_num[env.state_to_str(env.s)],:])
+        env.step(a)
+        env.print_state(env.s, env.spec)
         
         obs = env.s_to_f(env.s)
         
@@ -42,18 +47,24 @@ def experiment_wrapper(env='vases',
                        temp=1,
                        learning_rate=.1,
                        epochs=200,
-                       s_current='',
+                       s_cur_string='',
                        uniform=False,
                        measures=['result']):
     if env == "vases":
         env = VasesGrid(VasesEnvSpec2x3V2D3(), VasesEnvState2x3V2D3())
-    elif env == "boxes":
-        env = BoxesEnv(BoxesEnvSpec6x6(), BoxesEnvState6x6())
+    elif env == "boxes_wall":
+        env = BoxesEnv(BoxesEnvSpec7x9(), BoxesEnvWallState7x9())
+    elif env == "boxes_wall_small":
+        env = BoxesEnv(BoxesEnvSpec6x7(), BoxesEnvWallState6x7())
+    elif env == "boxes_nowall":
+        env = BoxesEnv(BoxesEnvSpec7x9(), BoxesEnvNoWallState7x9())
+    elif env == "boxes_nowall_small":
+        env = BoxesEnv(BoxesEnvSpec6x7(), BoxesEnvNoWallState6x7())
     else:
         raise ValueError('Unknown environment: {}'.format(args.env))
 
     print('Initial state:')
-    env.print_state(env.init_state)
+    env.print_state(env.init_state, env.spec)
 
     if not uniform:
         p_0=np.zeros(env.nS)
@@ -61,29 +72,42 @@ def experiment_wrapper(env='vases',
     else:
         p_0=np.ones(env.nS) / env.nS
     
-    if s_current == '': s_current = np.copy(p_0)
+    if s_cur_string == '': s_current = np.copy(p_0)
+    elif s_cur_string == "nowall":
+        cur_state = BoxesEnvNoWallState7x9()
+        s_current = np.zeros(env.nS)
+        s_current[env.state_num[env.state_to_str(cur_state)]] = 1
+    elif s_cur_string == "nowall_small":
+        cur_state = BoxesEnvNoWallState6x7()
+        s_current = np.zeros(env.nS)
+        s_current[env.state_num[env.state_to_str(cur_state)]] = 1
     
+    r_vec = env.r_vec
     if algorithm == "om":
-        r_vec = om_method(env, s_current, p_0, horizon, temp, epochs, learning_rate)
+        om_vec = om_method(env, s_current, p_0, horizon, temp, epochs, learning_rate)
+        om_vec = custom_norm(om_vec)
+        r_vec = 2*r_vec + om_vec
+        #TODO: Swtich to divide by L2 norm
         with printoptions(precision=4, suppress=True):
             print(); print('Final reward vector: ', r_vec)
-        return r_vec
+    elif algorithm == "pass":
+        pass
     else:
         raise ValueError('Unknown algorithm: {}'.format(algorithm))
 
     if rl_algorithm == "vi":
-        forward_rl(env, r_rl + r_vec)
+        forward_rl(env, r_vec, current_s=cur_state)
     elif rl_algorithm == "test": 
         np.random.seed(0)
         env.reset()
-        for i in range(10):
+        for a in [0, 1, 2, 2, 2, 1]:
+            env.step(a)
             env.print_state(env.s, env.spec)
-            env.step(np.random.randint(0, env.nA))
 
+    return r_vec
 
 
 # Writing output for experiments
-
 def get_filename(args):
     filename = '{}-env={}-algorithm={}-rl_algorithm={}-horizon={}-temperature={}-learning_rate={}-epochs={}-state={}-uniform_prior={}-dependent_vars={}.csv'
     filename = filename.format(
@@ -97,18 +121,18 @@ def write_output(results, indep_var, indep_vals, dependent_vars, args):
         writer = csv.DictWriter(csvfile, fieldnames=[indep_var] + dependent_vars)
         writer.writeheader()
         for indep_val, result in zip(indep_vals, results):
-            row = dict(zip(dependent_vars, result))
+            row = {}
+            row[dependent_vars[0]] = result
             row[indep_var] = indep_val
             writer.writerow(row)
 
 
 # Command-line arguments
-
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('-e', '--env', type=str, default='vases',
                         help='Environment to run: one of [vases, boxes]')
-    parser.add_argument('-a', '--algorithm', type=str, default='om',
+    parser.add_argument('-a', '--algorithm', type=str, default='pass',
                         help='Frame condition inference algorithm. Only om for now.')
     parser.add_argument('-r', '--rl_algorithm', type=str, default='vi',
                         help='Algorithm to run on the inferred reward')
@@ -147,7 +171,7 @@ def setup_experiment(args):
     add_to_dict('temp', [float(t) for t in args.temperature.split(',')])
     add_to_dict('learning_rate', [float(lr) for lr in args.learning_rate.split(',')])
     add_to_dict('epochs', [int(epochs) for epochs in args.epochs.split(',')])
-    add_to_dict('s_current', args.state.split(','))
+    add_to_dict('s_cur_string', args.state.split(','))
     add_to_dict('uniform', [bool(u) for u in args.uniform_prior.split(',')])
     return indep_vars_dict, control_vars_dict, args.dependent_vars.split(',')
 

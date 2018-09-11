@@ -369,7 +369,7 @@ class VasesGrid(object):
         return VasesEnvState(d_pos, v_pos, bv_pos, a_pos, t_pos, carrying, table_pos)
 
 
-    def print_state(self, state):
+    def print_state(self, state, spec=None):
         '''
         Renders the state. Each tile in the gridworld corresponds to a 2x2 cell in
         the rendered state.

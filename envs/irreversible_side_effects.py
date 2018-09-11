@@ -5,6 +5,7 @@ from gym import spaces
 from envs.utils import unique_perm, zeros_with_ones
 
 shift_coord_array = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+# [west, south, east, north]
 
 class BoxesEnvState(object):
     '''
@@ -29,7 +30,6 @@ class BoxesEnv(object):
         self.f_include_masks = f_include_masks
         f_len = len(self.s_to_f(init_state))
 
-        # TODO: Figure out if you want to change the way the reward works to the original environment
         self.r_vec = np.concatenate([np.array([0,0,0,1], dtype='float32'),
                                      np.zeros(f_len-self.nF, dtype='float32')])
         self.observation_space = spaces.Box(low=0, high=255, shape=self.r_vec.shape, dtype=np.float32)
@@ -63,11 +63,6 @@ class BoxesEnv(object):
                 if not b_mask_pos[np.where(agent_mask_pos)[0][0]][np.where(agent_mask_pos)[1][0]]:
                     state = BoxesEnvState(agent_mask_pos, b_mask_pos)
                     state_str = self.state_to_str(state)
-                    # print("Enumerating")
-                    # print(state.a_pos.astype(int))
-                    # print(state.b_pos.astype(int))
-                    # print()
-                    # import pdb; pdb.set_trace()
 
                     if state_str not in state_num:
                         state_num[state_str] = len(state_num)
@@ -78,14 +73,6 @@ class BoxesEnv(object):
             P[state_num_id] = {}
             for action in range(self.nA):
                 statep = self.state_step(action, self.str_to_state(state_str))
-                # print(action)
-                # print(str_to_state(state_str).a_pos.astype(int))
-                # print(str_to_state(state_str).b_pos.astype(int))
-                # print()
-                # print(statep.a_pos.astype(int))
-                # print(statep.b_pos.astype(int))
-                # print()
-                # print()
                 statep_str = self.state_to_str(statep)
                 P[state_num_id][action] = [(1, state_num[statep_str], 0)]
 
@@ -121,7 +108,7 @@ class BoxesEnv(object):
     def make_f_matrix(self):
          self.f_matrix = np.zeros((self.nS, self.nF))
          for state_str, state_num_id in self.state_num.items():
-             self.f_matrix[state_num_id, :] = self.s_to_f(self.self.str_to_state(state_str))
+             self.f_matrix[state_num_id, :] = self.s_to_f(self.str_to_state(state_str))
 
 
     def s_to_f(self, s, include_masks=None):
@@ -139,13 +126,14 @@ class BoxesEnv(object):
         # Iterate over box positions 
         for r in range(s.b_pos.shape[0]):
             for c in range(s.b_pos.shape[1]):
-                # Count adjacent boxes
-                surround = 0
-                for shift in shift_coord_array:
-                    if r+shift[0] < len(s.b_pos) and r+shift[0] >= 0 and c+shift[1] < len(s.b_pos[r+shift[0]]) and c+shift[1] >= 0:
-                        if self.spec.wall_mask[r+shift[0]][c+shift[1]]:
-                            surround += 1
-                f[min(surround, 2)] += 1
+                if s.b_pos[r][c]:
+                    # Count adjacent walls
+                    surround = 0
+                    for shift in shift_coord_array:
+                        if r+shift[0] < len(s.b_pos) and r+shift[0] >= 0 and c+shift[1] < len(s.b_pos[r+shift[0]]) and c+shift[1] >= 0:
+                            if self.spec.wall_mask[r+shift[0]][c+shift[1]]:
+                                surround += 1
+                    f[min(surround, 2)] += 1
         f[-1] = np.sum(np.logical_and(s.a_pos, self.spec.goal_mask))
 
         f_mask = np.array([])
@@ -195,7 +183,7 @@ class BoxesEnv(object):
                         move_box = shift_coord_array[action]
                         move_box = (move_box[0]*2 + a_coord[0], move_box[1]*2 + a_coord[1])
                         if move_box[0]>=0 and move_box[0]<rows and move_box[1]>=0 and move_box[1]<cols:
-                            if wall_mask[move_box]==False:
+                            if wall_mask[move_box]==False and b_mask[move_box]==False:
                                 a_coord_new = (move_agent[0], move_agent[1])
                                 b_coord_new = (move_box[0], move_box[1])
 
@@ -248,7 +236,10 @@ class BoxesEnv(object):
 
     def print_state(self, state, spec):
         '''
-        TODO: Describe appearance of printed state
+        - Grey blocks are walls
+        - Green blocks are boxes
+        - The purple block is the goal state
+        - The yellow block is the agent
         '''
         rows = state.b_pos.shape[0]
         cols = state.b_pos.shape[1]
@@ -262,27 +253,27 @@ class BoxesEnv(object):
             canvas[:, j] = 2
 
         # agent
-        for i in range(n):
-            for j in range(m):
+        for i in range(rows):
+            for j in range(cols):
                 if state.a_pos[i, j]==1:
-                    canvas[2*i+1, 2*j+1] = 3
+                    canvas[2*i, 2*j+1] = 3
 
         # boxes
-        for i in range(n):
-            for j in range(m):
+        for i in range(rows):
+            for j in range(cols):
                 if state.b_pos[i, j]==1:
-                    canvas[2*i+1, 2*j+1] = 4
+                    canvas[2*i, 2*j+1] = 4
         # goal
-        for i in range(n):
-            for j in range(m):
+        for i in range(rows):
+            for j in range(cols):
                 if spec.goal_mask[i, j]==1:
-                    canvas[2*i, 2*j+2] = 5
+                    canvas[2*i, 2*j+1] = 5
 
         # walls
-        for i in range(n):
-            for j in range(m):
+        for i in range(rows):
+            for j in range(cols):
                 if spec.wall_mask[i, j]==1:
-                    canvas[2*i, 2*j+2] = 6
+                    canvas[2*i, 2*j+1] = 6
 
         black_color = '\x1b[0m'
         purple_background_color = '\x1b[0;35;85m'
@@ -302,7 +293,7 @@ class BoxesEnv(object):
                 elif char_num==5:
                     print(purple_background_color+'█'+black_color, end='')
                 elif char_num==6:
-                    print('\033[91m█'+black_color, end='')
+                    print('█'+black_color, end='')
             print('')
 
 
@@ -311,8 +302,8 @@ class BoxesEnv(object):
         returns a string encoding of a state to serve as key in the state dictionary
         '''
         string = str(state.a_pos.shape[0]) + "," + str(state.a_pos.shape[1]) + ","
-        string += np.array_str(state.a_pos.flatten().astype(int))
-        string += np.array_str(state.b_pos.flatten().astype(int))
+        string += np.array_str(state.a_pos.flatten().astype(int), max_line_width=100000)
+        string += np.array_str(state.b_pos.flatten().astype(int), max_line_width=100000)
         return string
 
 
