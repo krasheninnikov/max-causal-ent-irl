@@ -115,7 +115,7 @@ class BoxesEnv(object):
         '''
         returns features of the state:
         - Number of boxes adjacent to zero walls
-        - Number of boxes adjacent to one wall
+        - Number of boxes adjacent to one or more walls
         - Number of boxes adjacent to two or more walls
         - Whether agent is on the goal state or not
         '''
@@ -133,7 +133,8 @@ class BoxesEnv(object):
                         if r+shift[0] < len(s.b_pos) and r+shift[0] >= 0 and c+shift[1] < len(s.b_pos[r+shift[0]]) and c+shift[1] >= 0:
                             if self.spec.wall_mask[r+shift[0]][c+shift[1]]:
                                 surround += 1
-                    f[min(surround, 2)] += 1
+                    for w in range(3):
+                        f[w] += 1 if surround >= w else 0
         f[-1] = np.sum(np.logical_and(s.a_pos, self.spec.goal_mask))
 
         f_mask = np.array([])
@@ -183,7 +184,7 @@ class BoxesEnv(object):
                         move_box = shift_coord_array[action]
                         move_box = (move_box[0]*2 + a_coord[0], move_box[1]*2 + a_coord[1])
                         if move_box[0]>=0 and move_box[0]<rows and move_box[1]>=0 and move_box[1]<cols:
-                            if wall_mask[move_box]==False and b_mask[move_box]==False:
+                            if wall_mask[move_box]==False and state.b_pos[move_box]==False:
                                 a_coord_new = (move_agent[0], move_agent[1])
                                 b_coord_new = (move_box[0], move_box[1])
 

@@ -13,7 +13,7 @@ from envs.side_effects_spec import BoxesEnvSpec6x7, BoxesEnvNoWallState6x7, Boxe
 
 from envs.utils import unique_perm, zeros_with_ones, printoptions
 
-from last_step_om_features import om_method, compute_d_last_step_discrete
+from principled_frame_cond_features import om_method
 
 from value_iter_and_policy import vi_boltzmann, vi_boltzmann_deterministic
 
@@ -22,15 +22,16 @@ def custom_norm(v):
 
 def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None):
     '''Given an env and R, runs soft VI for h steps and rolls out the resulting policy'''
+
     V, Q, policy = vi_boltzmann_deterministic(env, 1, env.f_matrix @ r, h, temp) 
     
     if current_s is None: 
         env.reset()
     else:
         env.s = env.str_to_state(env.num_state[np.where(current_s)[0][0]])
+
     env.print_state(env.s, env.spec); print()
     for i in range(steps_printed):
-        env.print_state(env.s, env.spec)
         a = np.random.choice(env.nA, p=policy[env.state_num[env.state_to_str(env.s)],:])
         env.step(a)
         env.print_state(env.s, env.spec)
@@ -84,10 +85,11 @@ def experiment_wrapper(env='vases',
     
     r_vec = env.r_vec
     if algorithm == "om":
+        task_weight = 1000 
+        safety_weight = 1
         om_vec = om_method(env, s_current, p_0, horizon, temp, epochs, learning_rate)
         om_vec = custom_norm(om_vec)
-        r_vec = 2*r_vec + om_vec
-        #TODO: Swtich to divide by L2 norm
+        r_vec = task_weight * r_vec + safety_weight * om_vec
         with printoptions(precision=4, suppress=True):
             print(); print('Final reward vector: ', r_vec)
     elif algorithm == "pass":
@@ -95,8 +97,9 @@ def experiment_wrapper(env='vases',
     else:
         raise ValueError('Unknown algorithm: {}'.format(algorithm))
 
+    # for some stupid reasong boringu VI won't work TODO
     if rl_algorithm == "vi":
-        forward_rl(env, r_vec, current_s=cur_state)
+        forward_rl(env, r_vec, current_s=s_current)
     elif rl_algorithm == "test": 
         np.random.seed(0)
         env.reset()
