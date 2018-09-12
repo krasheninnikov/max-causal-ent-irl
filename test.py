@@ -17,9 +17,6 @@ from principled_frame_cond_features import om_method
 
 from value_iter_and_policy import vi_boltzmann, vi_boltzmann_deterministic
 
-def custom_norm(v):
-    return v / np.linalg.norm(v)
-
 def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None):
     '''Given an env and R, runs soft VI for h steps and rolls out the resulting policy'''
 
@@ -85,10 +82,10 @@ def experiment_wrapper(env='vases',
     
     r_vec = env.r_vec
     if algorithm == "om":
-        task_weight = 1000 
+        task_weight = 2 
         safety_weight = 1
         om_vec = om_method(env, s_current, p_0, horizon, temp, epochs, learning_rate)
-        om_vec = custom_norm(om_vec)
+        om_vec = om_vec / np.linalg.norm(om_vec)
         r_vec = task_weight * r_vec + safety_weight * om_vec
         with printoptions(precision=4, suppress=True):
             print(); print('Final reward vector: ', r_vec)
