@@ -36,7 +36,7 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
             D = compute_d_last_step_discrete(mdp, policy, p_0, horizon)   
             dL_dr_vec = -(s_current - D) @ mdp.f_matrix
 
-            # Gradient descent; gradiend may not be the actual gradient -- have to check the math,
+            # Gradient descent; gradient may not be the actual gradient -- have to check the math,
             # bit this should perform the matching correctly
             r_vec = r_vec - learning_rate * dL_dr_vec
             

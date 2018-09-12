@@ -68,3 +68,45 @@ def unique_perm(seq):
         # Reverse the part after but not                           k
         # including k, also efficiently.                     0 0 1 1 0 0 1 1
         seq[k + 1:] = seq[-1:k:-1]
+
+
+
+
+
+class Direction(object):
+    """A class that contains the five actions available in Gridworlds.
+
+    Includes definitions of the actions as well as utility functions for
+    manipulating them or applying them.
+    """
+    NORTH = (0, -1)
+    SOUTH = (0, 1)
+    EAST  = (1, 0)
+    WEST  = (-1, 0)
+    INDEX_TO_DIRECTION = [NORTH, SOUTH, EAST, WEST]
+    DIRECTION_TO_INDEX = { a:i for i, a in enumerate(INDEX_TO_DIRECTION) }
+    ALL_DIRECTIONS = INDEX_TO_DIRECTION
+
+    @staticmethod
+    def move_in_direction(point, direction):
+        """Takes a step in the given direction and returns the new point.
+
+        point: Tuple (x, y) representing a point in the x-y plane.
+        direction: One of the Directions.
+        """
+        x, y = point
+        dx, dy = direction
+        return (x + dx, y + dy)
+
+    @staticmethod
+    def move_in_direction_number(point, num):
+        direction = Direction.get_direction_from_number(num)
+        return Direction.move_in_direction(point, direction)
+
+    @staticmethod
+    def get_number_from_direction(direction):
+        return Direction.DIRECTION_TO_INDEX[direction]
+
+    @staticmethod
+    def get_direction_from_number(number):
+        return Direction.INDEX_TO_DIRECTION[number]
