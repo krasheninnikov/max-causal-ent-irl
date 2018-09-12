@@ -13,7 +13,7 @@ from envs.side_effects_spec import BoxesEnvSpec6x7, BoxesEnvNoWallState6x7, Boxe
 
 from envs.utils import unique_perm, zeros_with_ones, printoptions
 
-from principled_frame_cond_features import om_method
+from principled_frame_cond_features import om_method, norm_distr, laplace_distr
 
 from value_iter_and_policy import vi_boltzmann, vi_boltzmann_deterministic
 
@@ -47,6 +47,7 @@ def experiment_wrapper(env='vases',
                        epochs=200,
                        s_cur_string='',
                        uniform=False,
+                       prior=None,
                        measures=['result']):
     if env == "vases":
         env = VasesGrid(VasesEnvSpec2x3V2D3(), VasesEnvState2x3V2D3())
@@ -84,6 +85,13 @@ def experiment_wrapper(env='vases',
     if algorithm == "om":
         task_weight = 2 
         safety_weight = 1
+        if prior == "gaussian":
+            r_prior = norm_distr(env.r_vec, 1)
+        elif prior == "laplace":
+            r_prior = laplace_distr(env.r_vec, 1)
+        else:
+            r_prior = None
+
         om_vec = om_method(env, s_current, p_0, horizon, temp, epochs, learning_rate)
         om_vec = om_vec / np.linalg.norm(om_vec)
         r_vec = task_weight * r_vec + safety_weight * om_vec
@@ -94,7 +102,6 @@ def experiment_wrapper(env='vases',
     else:
         raise ValueError('Unknown algorithm: {}'.format(algorithm))
 
-    # for some stupid reasong boringu VI won't work TODO
     if rl_algorithm == "vi":
         forward_rl(env, r_vec, current_s=s_current)
     elif rl_algorithm == "test": 
@@ -109,11 +116,11 @@ def experiment_wrapper(env='vases',
 
 # Writing output for experiments
 def get_filename(args):
-    filename = '{}-env={}-algorithm={}-rl_algorithm={}-horizon={}-temperature={}-learning_rate={}-epochs={}-state={}-uniform_prior={}-dependent_vars={}.csv'
+    filename = '{}-env={}-algorithm={}-rl_algorithm={}-horizon={}-temperature={}-learning_rate={}-epochs={}-state={}-uniform_prior={}-prior={}-dependent_vars={}.csv'
     filename = filename.format(
         str(datetime.datetime.now()), args.env, args.algorithm,
         args.rl_algorithm, args.horizon, args.temperature, args.learning_rate,
-        args.epochs, args.state, args.uniform_prior, args.dependent_vars)
+        args.epochs, args.state, args.uniform_prior, args.prior, args.dependent_vars)
     return args.output_folder + '/' + filename
 
 def write_output(results, indep_var, indep_vals, dependent_vars, args):
@@ -148,9 +155,10 @@ def parse_args(args=None):
                         help='Specifies the observed state.')
     parser.add_argument('-u', '--uniform_prior', type=str, default='false',
                         help='Whether to use a uniform prior over initial states, or to know the initial state. Either true or false.')
+    parser.add_argument('-i', '--prior', type=str, default='',
+                        help='Prior to use for occupancy measure')
     parser.add_argument('-d', '--dependent_vars', type=str, default='result',
                         help='Dependent variables to measure and report')
-
     parser.add_argument('-o', '--output_folder', type=str, default='results',
                         help='Output folder')
     return parser.parse_args(args)
@@ -173,6 +181,7 @@ def setup_experiment(args):
     add_to_dict('epochs', [int(epochs) for epochs in args.epochs.split(',')])
     add_to_dict('s_cur_string', args.state.split(','))
     add_to_dict('uniform', [bool(u) for u in args.uniform_prior.split(',')])
+    add_to_dict('prior', args.prior.split(','))
     return indep_vars_dict, control_vars_dict, args.dependent_vars.split(',')
 
 
