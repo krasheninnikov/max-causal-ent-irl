@@ -16,24 +16,22 @@ from envs.room_spec import RoomSpec
 
 from envs.utils import unique_perm, zeros_with_ones, printoptions
 
-from last_step_om_features import om_method, compute_d_last_step_discrete
+from principled_frame_cond_features import om_method, norm_distr, laplace_distr
 
 from value_iter_and_policy import vi_boltzmann, vi_boltzmann_deterministic
 
-def custom_norm(v):
-    return v / np.linalg.norm(v)
-
 def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None):
     '''Given an env and R, runs soft VI for h steps and rolls out the resulting policy'''
+
     V, Q, policy = vi_boltzmann_deterministic(env, 1, env.f_matrix @ r, h, temp) 
     
     if current_s is None: 
         env.reset()
     else:
         env.s = env.str_to_state(env.num_state[np.where(current_s)[0][0]])
+
     env.print_state(env.s, env.spec); print()
     for i in range(steps_printed):
-        env.print_state(env.s, env.spec)
         a = np.random.choice(env.nA, p=policy[env.state_num[env.state_to_str(env.s)],:])
         env.step(a)
         env.print_state(env.s, env.spec)
@@ -68,6 +66,7 @@ def experiment_wrapper(env_name='vases',
                        epochs=200,
                        s_cur_string='',
                        uniform=False,
+                       prior=None,
                        measures=['result']):
     env = get_env(env_name)
     print('Initial state:')
@@ -95,10 +94,18 @@ def experiment_wrapper(env_name='vases',
         
     r_vec = env.r_vec
     if algorithm == "om":
+        task_weight = 2 
+        safety_weight = 1
+        if prior == "gaussian":
+            r_prior = norm_distr(env.r_vec, 1)
+        elif prior == "laplace":
+            r_prior = laplace_distr(env.r_vec, 1)
+        else:
+            r_prior = None
+
         om_vec = om_method(env, s_current, p_0, horizon, temp, epochs, learning_rate)
-        om_vec = custom_norm(om_vec)
-        r_vec = 2*r_vec + om_vec
-        #TODO: Switch to divide by L2 norm
+        om_vec = om_vec / np.linalg.norm(om_vec)
+        r_vec = task_weight * r_vec + safety_weight * om_vec
         with printoptions(precision=4, suppress=True):
             print(); print('Final reward vector: ', r_vec)
     elif algorithm == "pass":
@@ -107,7 +114,7 @@ def experiment_wrapper(env_name='vases',
         raise ValueError('Unknown algorithm: {}'.format(algorithm))
 
     if rl_algorithm == "vi":
-        forward_rl(env, r_vec, current_s=cur_state)
+        forward_rl(env, r_vec, current_s=s_current)
     elif rl_algorithm == "test": 
         np.random.seed(0)
         env.reset()
@@ -120,11 +127,11 @@ def experiment_wrapper(env_name='vases',
 
 # Writing output for experiments
 def get_filename(args):
-    filename = '{}-env={}-algorithm={}-rl_algorithm={}-horizon={}-temperature={}-learning_rate={}-epochs={}-state={}-uniform_prior={}-dependent_vars={}.csv'
+    filename = '{}-env={}-algorithm={}-rl_algorithm={}-horizon={}-temperature={}-learning_rate={}-epochs={}-state={}-uniform_prior={}-prior={}-dependent_vars={}.csv'
     filename = filename.format(
         str(datetime.datetime.now()), args.env, args.algorithm,
         args.rl_algorithm, args.horizon, args.temperature, args.learning_rate,
-        args.epochs, args.state, args.uniform_prior, args.dependent_vars)
+        args.epochs, args.state, args.uniform_prior, args.prior, args.dependent_vars)
     return args.output_folder + '/' + filename
 
 def write_output(results, indep_var, indep_vals, dependent_vars, args):
@@ -159,9 +166,10 @@ def parse_args(args=None):
                         help='Specifies the observed state.')
     parser.add_argument('-u', '--uniform_prior', type=str, default='false',
                         help='Whether to use a uniform prior over initial states, or to know the initial state. Either true or false.')
+    parser.add_argument('-i', '--prior', type=str, default='',
+                        help='Prior to use for occupancy measure')
     parser.add_argument('-d', '--dependent_vars', type=str, default='result',
                         help='Dependent variables to measure and report')
-
     parser.add_argument('-o', '--output_folder', type=str, default='results',
                         help='Output folder')
     return parser.parse_args(args)
@@ -184,6 +192,7 @@ def setup_experiment(args):
     add_to_dict('epochs', [int(epochs) for epochs in args.epochs.split(',')])
     add_to_dict('s_cur_string', args.state.split(','))
     add_to_dict('uniform', [bool(u) for u in args.uniform_prior.split(',')])
+    add_to_dict('prior', args.prior.split(','))
     return indep_vars_dict, control_vars_dict, args.dependent_vars.split(',')
 
 
