@@ -11,6 +11,9 @@ from envs.irreversible_side_effects import BoxesEnv
 from envs.side_effects_spec import BoxesEnvSpec7x9, BoxesEnvNoWallState7x9, BoxesEnvWallState7x9
 from envs.side_effects_spec import BoxesEnvSpec6x7, BoxesEnvNoWallState6x7, BoxesEnvWallState6x7
 
+from envs.room import RoomEnv, RoomState
+from envs.room_spec import RoomSpec
+
 from envs.utils import unique_perm, zeros_with_ones, printoptions
 
 from principled_frame_cond_features import om_method, norm_distr, laplace_distr
@@ -45,7 +48,23 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize
         print(obs, obs.T @ env.r_vec)
         print()
 
-def experiment_wrapper(env='vases',
+def get_env(env):
+    if env == "vases":
+        return VasesGrid(VasesEnvSpec2x3V2D3(), VasesEnvState2x3V2D3())
+    elif env == "boxes_wall":
+        return BoxesEnv(BoxesEnvSpec7x9(), BoxesEnvWallState7x9())
+    elif env == "boxes_wall_small":
+        return BoxesEnv(BoxesEnvSpec6x7(), BoxesEnvWallState6x7())
+    elif env == "boxes_nowall":
+        return BoxesEnv(BoxesEnvSpec7x9(), BoxesEnvNoWallState7x9())
+    elif env == "boxes_nowall_small":
+        return BoxesEnv(BoxesEnvSpec6x7(), BoxesEnvNoWallState6x7())
+    elif env == "room":
+        return RoomEnv(RoomSpec())
+    else:
+        raise ValueError('Unknown environment: {}'.format(env))
+
+def experiment_wrapper(env_name='vases',
                        algorithm='om',
                        rl_algorithm='vi',
                        s_cur_string='none',
@@ -57,19 +76,7 @@ def experiment_wrapper(env='vases',
                        uniform=False,
                        penalize_deviation=False,
                        measures=['result']):
-    if env == "vases":
-        env = VasesGrid(VasesEnvSpec2x3V2D3(), VasesEnvState2x3V2D3())
-    elif env == "boxes_wall":
-        env = BoxesEnv(BoxesEnvSpec7x9(), BoxesEnvWallState7x9())
-    elif env == "boxes_wall_small":
-        env = BoxesEnv(BoxesEnvSpec6x7(), BoxesEnvWallState6x7())
-    elif env == "boxes_nowall":
-        env = BoxesEnv(BoxesEnvSpec7x9(), BoxesEnvNoWallState7x9())
-    elif env == "boxes_nowall_small":
-        env = BoxesEnv(BoxesEnvSpec6x7(), BoxesEnvNoWallState6x7())
-    else:
-        raise ValueError('Unknown environment: {}'.format(args.env))
-
+    env = get_env(env_name)
     print('Initial state:')
     env.print_state(env.init_state, env.spec)
     print()
@@ -90,7 +97,11 @@ def experiment_wrapper(env='vases',
         cur_state = BoxesEnvNoWallState6x7()
         s_current = np.zeros(env.nS)
         s_current[env.state_num[env.state_to_str(cur_state)]] = 1
-    
+    elif s_cur_string == "room":
+        cur_state = RoomState((2, 2), {(2, 1): True})
+        s_current = np.zeros(env.nS)
+        s_current[env.state_num[env.state_to_str(cur_state)]] = 1
+        
     r_vec = env.r_vec
     if algorithm == "om":
         task_weight = 2 
@@ -185,7 +196,7 @@ def setup_experiment(args):
         else:
             control_vars_dict[var] = vals[0]
 
-    add_to_dict('env', args.env.split(','))
+    add_to_dict('env_name', args.env.split(','))
     add_to_dict('algorithm', args.algorithm.split(','))
     add_to_dict('rl_algorithm', args.rl_algorithm.split(','))
     add_to_dict('s_cur_string', args.state.split(','))
