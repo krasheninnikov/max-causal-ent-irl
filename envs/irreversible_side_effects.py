@@ -31,9 +31,7 @@ class BoxesEnvState(object):
 class BoxesEnv(DeterministicEnv):
     def __init__(self, spec, f_include_masks=False, compute_transitions=True):
         self.spec = spec
-
         self.init_state = deepcopy(spec.init_state)
-        self.s = deepcopy(self.init_state)
 
         self.nA = 4
         self.action_space = spaces.Discrete(self.nA)
@@ -47,7 +45,7 @@ class BoxesEnv(DeterministicEnv):
                                      np.zeros(f_len-self.nF, dtype='float32')])
         self.observation_space = spaces.Box(low=0, high=255, shape=self.r_vec.shape, dtype=np.float32)
 
-        self.timestep = 0
+        self.reset()
 
         if compute_transitions:
             states = self.enumerate_states()
