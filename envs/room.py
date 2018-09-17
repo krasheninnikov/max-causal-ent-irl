@@ -2,16 +2,9 @@ import numpy as np
 from collections import defaultdict
 from copy import copy, deepcopy
 from gym import spaces
-from envs.utils import unique_perm, Direction
 
-
-def all_boolean_assignments(n):
-    if n == 0:
-        yield []
-        return
-    for assignment in all_boolean_assignments(n - 1):
-        yield [True] + assignment
-        yield [False] + assignment
+from envs.env import DeterministicEnv
+from envs.utils import unique_perm, Direction, all_boolean_assignments
 
 
 class RoomState(object):
@@ -20,17 +13,29 @@ class RoomState(object):
     '''
     def __init__(self, agent_pos, vase_states):
         """
-        agent_pos:   Numpy mask of booleans, with a single True value
-            corresponding to the agent's location
-        vase_states: Numpy mask of booleans, where True denotes the presence of
-            an intact vase, while False means that the vase is broken or that
-            there is no vase.
+        agent_pos: (x, y) tuple for the agent's location
+        vase_states: Dictionary mapping (x, y) tuples to booleans, where True
+            means that the vase is intact
         """
         self.agent_pos = agent_pos
         self.vase_states = vase_states
 
+    def __eq__(self, other):
+        return isinstance(other, RoomState) and \
+            self.agent_pos == other.agent_pos and \
+            self.vase_states == other.vase_states
 
-class RoomEnv(object):
+    def __hash__(self):
+        return hash(self.agent_pos) + hash(tuple(self.vase_states.values()))
+
+    def __str__(self):
+        return '<Agent: {}, Vases: {}>'.format(self.agent_pos, self.vase_states)
+
+    def __repr__(self):
+        return str(self)
+
+
+class RoomEnv(DeterministicEnv):
     def __init__(self, spec, compute_transitions=True):
         """
         height: Integer, height of the grid. Y coordinates are in [0, height).
@@ -64,14 +69,12 @@ class RoomEnv(object):
         self.timestep = 0
 
         if compute_transitions:
-            self.enumerate_states()
+            states = self.enumerate_states()
+            self.make_transition_matrices(states, range(self.nA))
             self.make_f_matrix()
-            self.get_deterministic_transitions()
-            self.get_deterministic_transitions_transpose()
 
 
     def enumerate_states(self):
-        P = {}
         state_num = {}
 
         # Possible vase states
@@ -89,48 +92,14 @@ class RoomEnv(object):
                     if state_str not in state_num:
                         state_num[state_str] = len(state_num)
 
-        # Take every possible action from each of the possible states. Since the
-        # env is deterministic, this is sufficient to get transition probs
-        for state_str, state_num_id in state_num.items():
-            P[state_num_id] = {}
-            for action in range(self.nA):
-                statep = self.state_step(action, self.str_to_state(state_str))
-                statep_str = self.state_to_str(statep)
-                P[state_num_id][action] = [(1, state_num[statep_str], 0)]
-
         self.state_num = state_num
         self.num_state = {v: k for k, v in self.state_num.items()}
-        self.P = P
-        self.nS = len(P.keys())
+        self.nS = len(state_num)
 
+        return (self.str_to_state(x) for x in state_num.keys())
 
-    def get_transition_matrix(self):
-        '''Create self.T, a matrix with index S,A,S' -> P(S'|S,A)      '''
-        self.T = np.zeros([self.nS, self.nA, self.nS])
-        for s in range(self.nS):
-            for a in range(self.nA):
-                self.T[s, a, self.P[s][a][0][1]] = 1
-
-
-    def get_deterministic_transitions(self):
-        '''Create self.deterministic_T, a matrix with index S,A -> S'   '''
-        self.deterministic_T = np.zeros((self.nS, self.nA), dtype='int32')
-        for s in range(self.nS):
-            for a in range(self.nA):
-                self.deterministic_T[s,a]=self.P[s][a][0][1]
-                
-    def get_deterministic_transitions_transpose(self):
-        '''Create self.deterministic_transpose, a matrix with index S,A -> S', with the inverse dynamics '''
-        self.deterministic_transpose = np.zeros((self.nS, self.nA), dtype='int32')
-        for s in range(self.nS):
-            for a in range(self.nA):
-                self.deterministic_transpose[self.P[s][a][0][1],a]=s
-
-
-    def make_f_matrix(self):
-         self.f_matrix = np.zeros((self.nS, self.num_features))
-         for state_str, state_num_id in self.state_num.items():
-             self.f_matrix[state_num_id, :] = self.s_to_f(self.str_to_state(state_str))
+    def get_state_num(self, state):
+        return self.state_num[state]
 
 
     def s_to_f(self, s):
@@ -178,7 +147,7 @@ class RoomEnv(object):
         - done, the indicator of completed episode
         - info
         '''
-        self.state_step(action)
+        self.s = self.state_step(action)
         self.timestep+=1
 
         obs = self.s_to_f(self.s)
@@ -201,9 +170,10 @@ class RoomEnv(object):
         '''
         returns a string encoding of a state to serve as key in the state dictionary
         '''
-        x, y = state.agent_pos
-        vase_states_str = ','.join([str(int(state.vase_states[loc])) for loc in self.vase_locations])
-        return str(x) + ',' + str(y) + ',' + vase_states_str
+        return state
+        # x, y = state.agent_pos
+        # vase_states_str = ','.join([str(int(state.vase_states[loc])) for loc in self.vase_locations])
+        # return str(x) + ',' + str(y) + ',' + vase_states_str
 
 
     def str_to_state(self, string):
@@ -211,11 +181,12 @@ class RoomEnv(object):
         returns a state from a string encoding
         assumes states are represented as binary masks
         '''
-        vals = string.split(',')
-        agent_pos = int(vals[0]), int(vals[1])
-        vase_bools = [bool(x) for x in vals[2:]]
-        vase_states = dict(zip(self.vase_locations, vase_bools))
-        return RoomState(agent_pos, vase_states)
+        return string
+        # vals = string.split(',')
+        # agent_pos = int(vals[0]), int(vals[1])
+        # vase_bools = [bool(x) for x in vals[2:]]
+        # vase_states = dict(zip(self.vase_locations, vase_bools))
+        # return RoomState(agent_pos, vase_states)
 
 
     def print_state(self, state, spec=None):

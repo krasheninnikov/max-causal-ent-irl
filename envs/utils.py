@@ -71,8 +71,6 @@ def unique_perm(seq):
 
 
 
-
-
 class Direction(object):
     """A class that contains the five actions available in Gridworlds.
 
@@ -110,3 +108,12 @@ class Direction(object):
     @staticmethod
     def get_direction_from_number(number):
         return Direction.INDEX_TO_DIRECTION[number]
+
+
+def all_boolean_assignments(n):
+    if n == 0:
+        yield []
+        return
+    for assignment in all_boolean_assignments(n - 1):
+        yield [True] + assignment
+        yield [False] + assignment
