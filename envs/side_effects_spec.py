@@ -1,7 +1,7 @@
 import numpy as np
 
 class BoxesEnvSpec6x7(object):
-    def __init__(self):
+    def __init__(self, with_wall):
         '''
         wall_mask shows which surfaces are walls, the rest can be passed through
         goal_mask shows the position of the goal tile
@@ -22,8 +22,11 @@ class BoxesEnvSpec6x7(object):
 
         self.agent_mask = 1-self.wall_mask
         self.box_mask = 1-self.wall_mask
-
         self.n_b = 1
+        if with_wall:
+            self.init_state = BoxesEnvWallState6x7()
+        else:
+            self.init_state = BoxesEnvNoWallState6x7()
 
 
 class BoxesEnvWallState6x7(object):
@@ -67,7 +70,7 @@ class BoxesEnvNoWallState6x7(object):
 
 
 class BoxesEnvSpec7x9(object):
-    def __init__(self):
+    def __init__(self, with_wall):
         '''
         wall_mask shows which surfaces are walls, the rest can be passed through
         goal_mask shows the position of the goal tile
@@ -94,8 +97,11 @@ class BoxesEnvSpec7x9(object):
 
         self.agent_mask = 1-self.wall_mask
         self.box_mask = 1-self.wall_mask
-
         self.n_b = 3
+        if with_wall:
+            self.init_state = BoxesEnvWallState7x9()
+        else:
+            self.init_state = BoxesEnvNoWallState7x9()
 
 
 class BoxesEnvWallState7x9(object):
@@ -148,3 +154,11 @@ class BoxesEnvNoWallState7x9(object):
                                [0, 0, 0, 0, 1, 0, 0],
                                [0, 0, 0, 0, 0, 0, 0],
                                [0, 0, 0, 0, 0, 0, 0]], dtype='bool')
+
+
+BOXES_PROBLEMS = {
+    "wall->nowall": (BoxesEnvSpec7x9(True), BoxesEnvNoWallState7x9()),
+    "nowall->nowall": (BoxesEnvSpec7x9(False), BoxesEnvNoWallState7x9()),
+    "wall->nowall_small": (BoxesEnvSpec6x7(True), BoxesEnvNoWallState6x7()),
+    "nowall->nowall_small": (BoxesEnvSpec6x7(False), BoxesEnvNoWallState6x7()),
+}

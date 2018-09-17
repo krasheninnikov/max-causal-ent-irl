@@ -27,6 +27,7 @@ class VasesEnvSpec2x3V2D3(object):
 
         self.table_mask = np.array([[0, 0, 1],
                                     [0, 0, 0]], dtype='bool')
+        self.init_state = VasesEnvState2x3V2D3()
 
 
 class VasesEnvState2x3V2D3(object):
@@ -84,6 +85,7 @@ class VasesEnvSpec2x3(object):
 
         self.table_mask = np.array([[0, 0, 1],
                                     [0, 0, 0]], dtype='bool')
+        self.init_state = VasesEnvState2x3()
 
 
 class VasesEnvState2x3(object):
@@ -142,6 +144,7 @@ class VasesEnvSpec2x3Broken(object):
 
         self.table_mask = np.array([[0, 0, 1],
                                     [0, 0, 0]], dtype='bool')
+        self.init_state = VasesEnvState2x3Broken()
 
 
 class VasesEnvState2x3Broken(object):
@@ -201,6 +204,7 @@ class VasesEnvSpec2x4Broken(object):
 
         self.table_mask = np.array([[0, 0, 1, 0],
                                     [0, 0, 0, 0]], dtype='bool')
+        self.init_state = VasesEnvState2x4Broken()
 
 
 class VasesEnvState2x4Broken(object):
@@ -267,6 +271,7 @@ class VasesEnvSpec3x3(object):
 
         self.n_v = 2
         self.n_t = 1
+        self.init_state = VasesEnvState3x3()
 
 
 class VasesEnvState3x3(object):
@@ -306,3 +311,9 @@ class VasesEnvState3x3(object):
         self.table_pos = np.array([[0, 0, 1],
                                     [0, 0, 0],
                                     [0, 0, 0]], dtype='bool')
+
+
+VASES_PROBLEMS = {
+    # TODO: This is wrong, it sets the current state equal to the initial state
+    'default': (VasesEnvSpec2x3V2D3(), VasesEnvState2x3V2D3())
+}

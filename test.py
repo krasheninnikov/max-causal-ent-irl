@@ -5,14 +5,13 @@ import numpy as np
 import sys
 
 from envs.vases_grid import VasesGrid, VasesEnvState
-from envs.vases_spec import VasesEnvState2x3V2D3, VasesEnvSpec2x3V2D3, VasesEnvState2x3Broken, VasesEnvSpec2x3Broken
+from envs.vases_spec import VASES_PROBLEMS
 
 from envs.irreversible_side_effects import BoxesEnv
-from envs.side_effects_spec import BoxesEnvSpec7x9, BoxesEnvNoWallState7x9, BoxesEnvWallState7x9
-from envs.side_effects_spec import BoxesEnvSpec6x7, BoxesEnvNoWallState6x7, BoxesEnvWallState6x7
+from envs.side_effects_spec import BOXES_PROBLEMS
 
 from envs.room import RoomEnv, RoomState
-from envs.room_spec import RoomSpec
+from envs.room_spec import ROOM_PROBLEMS
 
 from envs.utils import unique_perm, zeros_with_ones, printoptions
 
@@ -48,61 +47,54 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize
         print(obs, obs.T @ env.r_vec)
         print()
 
-def get_env(env):
-    if env == "vases":
-        return VasesGrid(VasesEnvSpec2x3V2D3(), VasesEnvState2x3V2D3())
-    elif env == "boxes_wall":
-        return BoxesEnv(BoxesEnvSpec7x9(), BoxesEnvWallState7x9())
-    elif env == "boxes_wall_small":
-        return BoxesEnv(BoxesEnvSpec6x7(), BoxesEnvWallState6x7())
-    elif env == "boxes_nowall":
-        return BoxesEnv(BoxesEnvSpec7x9(), BoxesEnvNoWallState7x9())
-    elif env == "boxes_nowall_small":
-        return BoxesEnv(BoxesEnvSpec6x7(), BoxesEnvNoWallState6x7())
-    elif env == "room":
-        return RoomEnv(RoomSpec())
-    else:
-        raise ValueError('Unknown environment: {}'.format(env))
+PROBLEMS = {
+    'room': ROOM_PROBLEMS,
+    'vases': VASES_PROBLEMS,
+    'boxes': BOXES_PROBLEMS
+}
+
+ENV_CLASSES = {
+    'room': RoomEnv,
+    'vases': VasesGrid,
+    'boxes': BoxesEnv
+}
+
+def get_env_and_s_current(env_name, problem_name):
+    if env_name not in ENV_CLASSES:
+        raise ValueError('Environment {} is not one of {}'.format(env_name, list(ENV_CLASSES.keys())))
+    if problem_name not in PROBLEMS[env_name]:
+        raise ValueError('Problem spec {} is not one of {}'.format(problem_name, list(PROBLEMS[env_name].keys())))
+
+    spec, cur_state = PROBLEMS[env_name][problem_name]
+    env = ENV_CLASSES[env_name](spec)
+    s_current = np.zeros(env.nS)
+    s_current[env.get_num_from_state(cur_state)] = 1
+    return env, s_current
+
 
 def experiment_wrapper(env_name='vases',
+                       problem_name='default',
                        algorithm='om',
                        rl_algorithm='vi',
-                       s_cur_string='none',
                        prior='none',
                        horizon=22, #number of steps we assume the expert was acting previously
                        temp=1,
                        learning_rate=.1,
                        epochs=200,
                        uniform=False,
-                       penalize_deviation=False,
                        measures=['result']):
-    env = get_env(env_name)
+    env, s_current = get_env_and_s_current(env_name, problem_name)
     print('Initial state:')
     env.print_state(env.init_state, env.spec)
     print()
-
     if not uniform:
         p_0=np.zeros(env.nS)
         p_0[env.get_num_from_state(env.init_state)] = 1
     else:
         p_0=np.ones(env.nS) / env.nS
-    
-    if s_cur_string == "none": 
-        s_current = np.copy(p_0)
-    elif s_cur_string == "nowall":
-        cur_state = BoxesEnvNoWallState7x9()
-        s_current = np.zeros(env.nS)
-        s_current[env.get_num_from_state(cur_state)] = 1
-    elif s_cur_string == "nowall_small":
-        cur_state = BoxesEnvNoWallState6x7()
-        s_current = np.zeros(env.nS)
-        s_current[env.get_num_from_state(cur_state)] = 1
-    elif s_cur_string == "room":
-        cur_state = RoomState((2, 2), {(2, 1): True})
-        s_current = np.zeros(env.nS)
-        s_current[env.get_num_from_state(cur_state)] = 1
         
     r_vec = env.r_vec
+    penalize_deviation = False
     if algorithm == "om":
         task_weight = 2 
         safety_weight = 1
@@ -161,14 +153,14 @@ def write_output(results, indep_var, indep_vals, dependent_vars, args):
 # Command-line arguments
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-e', '--env', type=str, default='vases',
-                        help='Environment to run: one of [vases, boxes]')
+    parser.add_argument('-e', '--env', type=str, default='room',
+                        help='Environment to run: one of [vases, boxes, room]')
+    parser.add_argument('-s', '--problem_spec', type=str, default='simple',
+                        help='The name of the problem specification to solve.')
     parser.add_argument('-a', '--algorithm', type=str, default='pass',
-                        help='Frame condition inference algorithm. Only om for now.')
+                        help='Frame condition inference algorithm.')
     parser.add_argument('-r', '--rl_algorithm', type=str, default='vi',
                         help='Algorithm to run on the inferred reward')
-    parser.add_argument('-s', '--state', type=str, default='none',
-                        help='Specifies the observed state.')
     parser.add_argument('-i', '--prior', type=str, default='none',
                         help='Prior to use for occupancy measure')
     parser.add_argument('-H', '--horizon', type=str, default='22',
@@ -178,7 +170,7 @@ def parse_args(args=None):
     parser.add_argument('-l', '--learning_rate', type=str, default='0.1',
                         help='Learning rate for gradient descent')
     parser.add_argument('-p', '--epochs', type=str, default='200',
-                        help='Number of epochs to run gradient descent for.')
+                        help='Number of gradient descent steps to take.')
     parser.add_argument('-u', '--uniform_prior', type=str, default='False',
                         help='Whether to use a uniform prior over initial states, or to know the initial state. Either true or false.')
     parser.add_argument('-d', '--dependent_vars', type=str, default='result',
@@ -197,9 +189,9 @@ def setup_experiment(args):
             control_vars_dict[var] = vals[0]
 
     add_to_dict('env_name', args.env.split(','))
+    add_to_dict('problem_name', args.problem_spec.split(','))
     add_to_dict('algorithm', args.algorithm.split(','))
     add_to_dict('rl_algorithm', args.rl_algorithm.split(','))
-    add_to_dict('s_cur_string', args.state.split(','))
     add_to_dict('prior', args.prior.split(','))
     add_to_dict('horizon', [int(h) for h in args.horizon.split(',')])
     add_to_dict('temp', [float(t) for t in args.temperature.split(',')])

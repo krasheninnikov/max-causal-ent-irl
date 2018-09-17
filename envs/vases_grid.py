@@ -22,17 +22,17 @@ class VasesEnvState(object):
 
 
 class VasesGrid(object):
-    def __init__(self, spec, init_state, f_include_masks=False, compute_transitions=True):
+    def __init__(self, spec, f_include_masks=False, compute_transitions=True):
         self.spec = spec
 
-        self.init_state = deepcopy(init_state)
-        self.s = deepcopy(init_state)
+        self.init_state = deepcopy(spec.init_state)
+        self.s = deepcopy(self.init_state)
 
         self.nA = 5
         self.action_space = spaces.Discrete(self.nA)
 
         self.f_include_masks = f_include_masks
-        f_len = len(self.s_to_f(init_state))
+        f_len = len(self.s_to_f(self.init_state))
         self.r_vec = np.concatenate([np.array([0,0,1,0,0,0], dtype='float32'),
                                      np.zeros(f_len-6, dtype='float32')])
         self.observation_space = spaces.Box(low=0, high=255, shape=self.r_vec.shape, dtype=np.float32)
