@@ -70,8 +70,9 @@ class RoomEnv(DeterministicEnv):
 
         if compute_transitions:
             states = self.enumerate_states()
-            self.make_transition_matrices(states, range(self.nA))
-            self.make_f_matrix()
+            self.make_transition_matrices(
+                states, range(self.nA), self.nS, self.nA)
+            self.make_f_matrix(self.nS, self.num_features)
 
 
     def enumerate_states(self):
@@ -100,6 +101,9 @@ class RoomEnv(DeterministicEnv):
 
     def get_state_num(self, state):
         return self.state_num[state]
+
+    def get_state_str_from_num(self, state_num_id):
+        return self.num_state[state_num_id]
 
 
     def s_to_f(self, s):
@@ -203,7 +207,7 @@ class RoomEnv(DeterministicEnv):
         the agent and the table are never in the same cell.
         '''
         h, w = self.height, self.width
-        canvas = np.zeros(tuple([3*h-1, 2*w+1]), dtype='int8')
+        canvas = np.zeros(tuple([2*h-1, 3*w+1]), dtype='int8')
 
         # cell borders
         for y in range(1, canvas.shape[0], 2):
