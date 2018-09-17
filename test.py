@@ -14,15 +14,18 @@ from envs.side_effects_spec import BoxesEnvSpec6x7, BoxesEnvNoWallState6x7, Boxe
 from envs.utils import unique_perm, zeros_with_ones, printoptions
 
 from principled_frame_cond_features import om_method, norm_distr, laplace_distr
+from relative_reachability import relative_reachability_penalty
 
 from value_iter_and_policy import vi_boltzmann, vi_boltzmann_deterministic
 
-def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize_deviation=False):
+def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize_deviation=False, relative_reachability=False):
     '''Given an env and R, runs soft VI for h steps and rolls out the resulting policy'''
 
     r_s = env.f_matrix @ r
     if penalize_deviation:
         r_s += np.sqrt(np.sum((env.f_matrix - env.s_to_f(env.s).T) ** 2, axis=1))
+    if relative_reachability:
+        r_s += relative_reachability_penalty(env, h, env.s)
     V, Q, policy = vi_boltzmann_deterministic(env, 1, r_s, h, temp) 
     
     if current_s is None: 
@@ -119,6 +122,8 @@ def experiment_wrapper(env='vases',
         for a in [0, 1, 2, 2, 2, 1]:
             env.step(a)
             env.print_state(env.s, env.spec)
+    elif rl_algorithm == "relative_reachability":
+        forward_rl(env, r_vec, current_s=s_current, penalize_deviation=penalize_deviation, relative_reachability=True)
 
     return r_vec
 
