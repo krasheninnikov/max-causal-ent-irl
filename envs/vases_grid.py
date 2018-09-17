@@ -2,6 +2,7 @@ import numpy as np
 from collections import defaultdict
 from copy import copy, deepcopy
 from gym import spaces
+from envs.env import DeterministicEnv
 from envs.utils import unique_perm, zeros_with_ones
 
 
@@ -9,8 +10,7 @@ class VasesEnvState(object):
     '''
     state of the environment; describes positions of all objects in the env.
     '''
-    def __init__(self, d_pos, v_pos, bv_pos, a_pos, t_pos, carrying, table_pos):
-        self.d_pos = d_pos
+    def __init__(self, v_pos, bv_pos, a_pos, t_pos, carrying):
         self.v_pos = v_pos
         self.bv_pos = bv_pos
         self.a_pos = a_pos
@@ -18,37 +18,47 @@ class VasesEnvState(object):
         # Variable determining whether the agent is carrying something:
         # [0, 0] -> nothing, [1, 0] -> vase, [0, 1] -> tablecloth
         self.carrying = carrying
-        self.table_pos = table_pos
+
+        self.v_pos_tuple = tuple(v_pos.flatten())
+        self.bv_pos_tuple = tuple(bv_pos.flatten())
+        self.a_pos_tuple = tuple(a_pos.flatten())
+        self.t_pos_tuple = tuple(t_pos.flatten())
+        self.carrying_tuple = tuple(carrying)
+
+    def __eq__(self, other):
+        return isinstance(other, VasesEnvState) and \
+            self.v_pos_tuple == other.v_pos_tuple and \
+            self.bv_pos_tuple == other.bv_pos_tuple and \
+            self.a_pos_tuple == other.a_pos_tuple and \
+            self.t_pos_tuple == other.t_pos_tuple and \
+            self.carrying_tuple == other.carrying_tuple
+
+    def __hash__(self):
+        return hash(self.v_pos_tuple + self.bv_pos_tuple + self.a_pos_tuple + self.t_pos_tuple + self.carrying_tuple)
 
 
-class VasesGrid(object):
-    def __init__(self, spec, init_state, f_include_masks=False, compute_transitions=True):
+class VasesGrid(DeterministicEnv):
+    def __init__(self, spec, f_include_masks=False, compute_transitions=True):
         self.spec = spec
-
-        self.init_state = deepcopy(init_state)
-        self.s = deepcopy(init_state)
+        self.init_state = deepcopy(spec.init_state)
 
         self.nA = 5
         self.action_space = spaces.Discrete(self.nA)
 
         self.f_include_masks = f_include_masks
-        f_len = len(self.s_to_f(init_state))
+        f_len = len(self.s_to_f(self.init_state))
+        self.num_features = f_len
         self.r_vec = np.concatenate([np.array([0,0,1,0,0,0], dtype='float32'),
                                      np.zeros(f_len-6, dtype='float32')])
         self.observation_space = spaces.Box(low=0, high=255, shape=self.r_vec.shape, dtype=np.float32)
 
-        self.timestep = 0
+        self.reset()
 
         if compute_transitions:
-            self.enumerate_states()
-            self.make_f_matrix()
-            self.get_deterministic_transitions()
-            self.get_deterministic_transitions_transpose()
-
-        # non-vital params PPO1 uses
-        self.reward_range = (0.0, 1.0)
-        self.metadata = defaultdict(lambda : '')
-        self.spec.id = 0
+            states = self.enumerate_states()
+            self.make_transition_matrices(
+                states, range(self.nA), self.nS, self.nA)
+            self.make_f_matrix(self.nS, self.num_features)
 
     def enumerate_states(self):
         carrying = np.zeros(2, dtype='bool')
@@ -59,7 +69,6 @@ class VasesGrid(object):
         n_bv_pos = np.sum(self.spec.bv_mask)
         n_a_pos = np.sum(self.spec.agent_mask)
         n_t_pos = 1 + np.sum(self.spec.t_mask)
-        P = {}
         state_num = {}
 
         # Possible agent positions
@@ -89,6 +98,7 @@ class VasesGrid(object):
                     for bv_pos in unique_perm(zeros_with_ones(n_bv_pos, n_bv)):
                         bv_mask_pos = np.zeros_like(self.spec.bv_mask.flatten())
                         np.put(bv_mask_pos, np.where(self.spec.bv_mask.flatten()), bv_pos)
+                        bv_mask_pos = bv_mask_pos.reshape(self.spec.d_mask.shape)
 
                         # Possible tablecloth positions
                         for t_pos in unique_perm(zeros_with_ones(n_t_pos, n_t)):
@@ -105,60 +115,26 @@ class VasesGrid(object):
                             np.put(t_mask_pos, np.where(self.spec.t_mask.flatten()), t_pos[:-1])
                             t_mask_pos = t_mask_pos.reshape(self.spec.t_mask.shape)
 
-                            state = VasesEnvState(self.spec.d_mask,
-                                                  v_mask_pos,
+                            state = VasesEnvState(v_mask_pos,
                                                   bv_mask_pos,
                                                   agent_mask_pos,
                                                   t_mask_pos,
-                                                  carrying,
-                                                  self.spec.table_mask)
-                            state_str = self.state_to_str(state)
+                                                  deepcopy(carrying))
 
-                            if state_str not in state_num:
-                                state_num[state_str] = len(state_num)
-
-        # Take every possible action from each of the possible states. Since the
-        # env is deterministic, this is sufficient to get transition probs
-        for state_str, state_num_id in state_num.items():
-            P[state_num_id] = {}
-            for action in range(5):
-                statep = self.state_step(action, self.str_to_state(state_str))
-                statep_str = self.state_to_str(statep)
-                P[state_num_id][action] = [(1, state_num[statep_str], 0)]
+                            if state not in state_num:
+                                state_num[state] = len(state_num)
 
         self.state_num = state_num
         self.num_state = {v: k for k, v in self.state_num.items()}
-        self.P = P
-        self.nS = len(P.keys())
+        self.nS = len(state_num)
 
+        return state_num.keys()
 
-    def get_transition_matrix(self):
-        '''Create self.T, a matrix with index S,A,S' -> P(S'|S,A)      '''
-        self.T = np.zeros([self.nS, self.nA, self.nS])
-        for s in range(self.nS):
-            for a in range(self.nA):
-                self.T[s, a, self.P[s][a][0][1]] = 1
+    def get_num_from_state(self, state):
+        return self.state_num[state]
 
-
-    def get_deterministic_transitions(self):
-        '''Create self.deterministic_T, a matrix with index S,A -> S'   '''
-        self.deterministic_T = np.zeros((self.nS, self.nA), dtype='int32')
-        for s in range(self.nS):
-            for a in range(self.nA):
-                self.deterministic_T[s,a]=self.P[s][a][0][1]
-                
-    def get_deterministic_transitions_transpose(self):
-        '''Create self.deterministic_transpose, a matrix with index S,A -> S', with the inverse dynamics '''
-        self.deterministic_transpose = np.zeros((self.nS, self.nA), dtype='int32')
-        for s in range(self.nS):
-            for a in range(self.nA):
-                self.deterministic_transpose[self.P[s][a][0][1],a]=s
-
-
-    def make_f_matrix(self):
-         self.f_matrix = np.zeros((self.nS, 6))
-         for state_str, state_num_id in self.state_num.items():
-             self.f_matrix[state_num_id, :] = self.s_to_f(self.str_to_state(state_str))
+    def get_state_from_num(self, num):
+        return self.num_state[num]
 
 
     def s_to_f(self, s, include_masks=None):
@@ -180,8 +156,8 @@ class VasesGrid(object):
              np.sum(vases_on_tables), # number of vases on tables
              np.sum(tablecloths_on_tables),
              np.sum(np.logical_and(s.t_pos, self.spec.bv_mask)), # number of tablecloths on the floor
-             np.sum(np.logical_xor(vases_on_tables, np.logical_and(s.v_pos, s.d_pos))), # vases on desks
-             np.sum(np.logical_xor(tablecloths_on_tables, np.logical_and(s.t_pos, s.d_pos)))]) # tablecloths on desks
+             np.sum(np.logical_xor(vases_on_tables, np.logical_and(s.v_pos, self.spec.d_mask))), # vases on desks
+             np.sum(np.logical_xor(tablecloths_on_tables, np.logical_and(s.t_pos, self.spec.d_mask)))]) # tablecloths on desks
 
         f_mask = np.array([])
         if include_masks:
@@ -191,22 +167,15 @@ class VasesGrid(object):
         return np.concatenate([f, f_mask])
 
 
-    def reset(self):
-        self.timestep = 0
-        self.s = deepcopy(self.init_state)
-
-        obs = self.s_to_f(self.s)
-        return np.array(obs, dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
-
-
     def state_step(self, action, state=None):
         '''returns the next state given a state and an action'''
         action = int(action)
 
         if state==None: state = self.s
+        new_state = deepcopy(state)
+
         d_mask = self.spec.d_mask
-        n = d_mask.shape[0]
-        m = d_mask.shape[1]
+        n, m = d_mask.shape
 
         a_coord = np.where(state.a_pos)
         a_coord_new = copy(a_coord)
@@ -229,7 +198,7 @@ class VasesGrid(object):
             # update a_pos
             a_pos_new = np.zeros_like(state.a_pos)
             a_pos_new[a_coord_new] = True
-            state.a_pos = a_pos_new
+            new_state.a_pos = a_pos_new
 
         elif action==4:
             obj_coord = shift_coord_array[int(a_coord[0])]
@@ -241,13 +210,13 @@ class VasesGrid(object):
                 if state.carrying[0] + state.carrying[1] == 0:
                     # vase
                     if state.v_pos[obj_coord] == True:
-                        state.v_pos[obj_coord] = False
-                        state.carrying[0] = 1
+                        new_state.v_pos[obj_coord] = False
+                        new_state.carrying[0] = 1
 
                     # tablecloth
                     elif state.t_pos[obj_coord] == True:
-                        state.t_pos[obj_coord] = False
-                        state.carrying[1] = 1
+                        new_state.t_pos[obj_coord] = False
+                        new_state.carrying[1] = 1
 
                 # Try to put down an object
                 else:
@@ -255,121 +224,25 @@ class VasesGrid(object):
                     if state.carrying[0] == 1 and state.v_pos[obj_coord] == False:
                         # vase doesn't break
                         if self.spec.d_mask[obj_coord]:
-                            state.v_pos[obj_coord] = True
-                            state.carrying[0] = 0
+                            new_state.v_pos[obj_coord] = True
+                            new_state.carrying[0] = 0
 
                         # vase breaks
                         elif self.spec.bv_mask[obj_coord]:
                             # not allowing two broken vases in one spot
                             if state.bv_pos[obj_coord] == False:
-                                state.bv_pos[obj_coord] = True
-                                state.carrying[0] = 0
+                                new_state.bv_pos[obj_coord] = True
+                                new_state.carrying[0] = 0
 
                     # carrying a tablecloth
                     if state.carrying[1] == 1 and self.spec.t_mask[obj_coord]:
                         # cannot put into a cell already containing tablecloth or
                         # a vase (tablecloths go under vases)
                         if not state.t_pos[obj_coord] and not state.v_pos[obj_coord]:
-                            state.t_pos[obj_coord] = True
-                            state.carrying[1] = 0
+                            new_state.t_pos[obj_coord] = True
+                            new_state.carrying[1] = 0
 
-        return state
-
-
-    def step(self, action):
-        '''
-        given an action, takes a step from self.s, updates self.s and returns:
-        - the observation (features of the next state)
-        - the associated reward
-        - done, the indicator of completed episode
-        - info
-        '''
-        self.state_step(action)
-        self.timestep+=1
-
-        obs = self.s_to_f(self.s)
-        done = False
-        if self.timestep>500: done=True
-
-        info = defaultdict(lambda : '')
-        return np.array(obs, dtype='float32'), np.array(obs.T @ self.r_vec), np.array(done, dtype='bool'), info
-
-
-    def close(self):
-        self.reset()
-
-
-    def seed(self, seed=None):
-        pass
-
-
-    def reset(self):
-        self.timestep = 0
-        self.s = deepcopy(self.init_state)
-
-        obs = self.s_to_f(self.s)
-        return np.array([obs], dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
-
-
-    def state_to_str(self, state):
-        '''
-        returns a string encoding of a state to serve as key in the state dictionary
-        '''
-        string = str(state.d_pos.shape[0]) + "," + str(state.d_pos.shape[1]) + ","
-        string += np.array_str(state.d_pos.flatten().astype(int))[1:-1]
-        string += np.array_str(state.v_pos.flatten().astype(int))[1:-1]
-        string += np.array_str(state.bv_pos.flatten().astype(int))[1:-1]
-        string += np.array_str(state.t_pos.flatten().astype(int))[1:-1]
-        string += np.array_str(state.table_pos.flatten().astype(int))[1:-1]
-        string += np.array_str(state.a_pos.flatten().astype(int))[1:-1]
-        string += np.array_str(np.asarray(state.carrying).astype(int))[1:-1]
-
-        return string.replace(" ", "")
-
-
-    def str_to_state(self, string):
-        '''
-        returns a state from a string encoding
-        assumes states are represented as binary masks
-        '''
-        rpos = string.find(",")
-        rows = int(string[:rpos])
-        string = string[rpos+1:]
-
-        cpos = string.find(",")
-        cols = int(string[:cpos])
-        string = string[cpos+1:]
-
-        d_pos = np.asarray(list(string[:rows*cols]))
-        d_pos = (d_pos > '0').reshape(rows, cols)
-        string = string[rows*cols:]
-
-        v_pos = np.asarray(list(string[:rows*cols]))
-        v_pos = (v_pos > '0').reshape(rows, cols)
-        string = string[rows*cols:]
-
-        bv_pos = np.asarray(list(string[:rows*cols]))
-        bv_pos = (bv_pos > '0').reshape(rows, cols)
-        string = string[rows*cols:]
-
-        t_pos = np.asarray(list(string[:rows*cols]))
-        t_pos = (t_pos > '0').reshape(rows, cols)
-        string = string[rows*cols:]
-
-        table_pos = np.asarray(list(string[:rows*cols]))
-        table_pos = (table_pos > '0').reshape(rows, cols)
-        string = string[rows*cols:]
-
-        a_pos = np.asarray(list(string[:4*rows*cols]))
-        a_pos = (a_pos > '0').reshape(4, rows, cols)
-        string = string[4*rows*cols:]
-
-        carrying = [int(string[0]), int(string[1])]
-
-        return VasesEnvState(d_pos, v_pos, bv_pos, a_pos, t_pos, carrying, table_pos)
-
-    def get_num_from_state(self, state):
-        return self.state_num[self.state_to_str(state)]
+        return new_state
 
 
     def print_state(self, state, spec=None):
@@ -385,8 +258,7 @@ class VasesGrid(object):
         carrying. The agent is rendered in the same subcell as tables are since
         the agent and the table are never in the same cell.
         '''
-        n = state.d_pos.shape[0]
-        m = state.d_pos.shape[1]
+        n, m = self.spec.d_mask.shape
 
         canvas = np.zeros(tuple([3*n-1, 3*m+1]), dtype='int8')
 
@@ -399,7 +271,7 @@ class VasesGrid(object):
         # desks
         for i in range(n):
             for j in range(m):
-                if state.d_pos[i, j]==1:
+                if self.spec.d_mask[i, j]==1:
                     canvas[3*i+1, 3*j+1] = 3
 
         # vases
@@ -427,11 +299,11 @@ class VasesGrid(object):
                     if state.a_pos[rotation, i, j]==1:
                         canvas[3*i+1, 3*j+1] = 7+rotation
 
-        # tables; it's important for this for loop to be after the d_pos for loop
-        # since table_pos is in d_pos
+        # tables; it's important for this for loop to be after the d_mask for loop
+        # since table_mask is in d_mask
         for i in range(n):
             for j in range(m):
-                if state.table_pos[i, j]==1:
+                if self.spec.table_mask[i, j]==1:
                     canvas[3*i+1, 3*j+1] = 11
 
         black_color = '\x1b[0m'

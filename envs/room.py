@@ -31,9 +31,6 @@ class RoomState(object):
     def __str__(self):
         return '<Agent: {}, Vases: {}>'.format(self.agent_pos, self.vase_states)
 
-    def __repr__(self):
-        return str(self)
-
 
 class RoomEnv(DeterministicEnv):
     def __init__(self, spec, compute_transitions=True):
@@ -55,7 +52,6 @@ class RoomEnv(DeterministicEnv):
         self.num_vases = len(self.vase_locations)
         self.carpet_locations = set(spec.carpet_locations)
         self.feature_locations = list(spec.feature_locations)
-        self.s = deepcopy(self.init_state)
         self.spec = None  # TODO: Remove this line? test.py might use it?
 
         self.nA = 4
@@ -66,7 +62,7 @@ class RoomEnv(DeterministicEnv):
         self.r_vec = np.array([0,1,0,1,0], dtype='float32')
         self.observation_space = spaces.Box(low=0, high=255, shape=self.r_vec.shape, dtype=np.float32)
 
-        self.timestep = 0
+        self.reset()
 
         if compute_transitions:
             states = self.enumerate_states()
@@ -101,8 +97,8 @@ class RoomEnv(DeterministicEnv):
     def get_num_from_state(self, state):
         return self.state_num[state]
 
-    def get_state_from_num(self, state_num_id):
-        return self.num_state[state_num_id]
+    def get_state_from_num(self, num):
+        return self.num_state[num]
 
 
     def s_to_f(self, s):
@@ -119,14 +115,6 @@ class RoomEnv(DeterministicEnv):
         return features
 
 
-    def reset(self):
-        self.timestep = 0
-        self.s = deepcopy(self.init_state)
-
-        obs = self.s_to_f(self.s)
-        return np.array(obs, dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
-
-
     def state_step(self, action, state=None):
         '''returns the next state given a state and an action'''
         action = int(action)
@@ -140,33 +128,6 @@ class RoomEnv(DeterministicEnv):
         if new_agent_pos in new_vase_states:
             new_vase_states[new_agent_pos] = False  # Break the vase
         return RoomState(new_agent_pos, new_vase_states)
-
-
-    def step(self, action):
-        '''
-        given an action, takes a step from self.s, updates self.s and returns:
-        - the observation (features of the next state)
-        - the associated reward
-        - done, the indicator of completed episode
-        - info
-        '''
-        self.s = self.state_step(action)
-        self.timestep+=1
-
-        obs = self.s_to_f(self.s)
-        done = False
-        if self.timestep>500: done=True
-
-        info = defaultdict(lambda : '')
-        return np.array(obs, dtype='float32'), np.array(obs.T @ self.r_vec), np.array(done, dtype='bool'), info
-
-
-    def close(self):
-        self.reset()
-
-
-    def seed(self, seed=None):
-        pass
 
 
     def print_state(self, state, spec=None):
