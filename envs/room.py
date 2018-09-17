@@ -31,9 +31,6 @@ class RoomState(object):
     def __str__(self):
         return '<Agent: {}, Vases: {}>'.format(self.agent_pos, self.vase_states)
 
-    def __repr__(self):
-        return str(self)
-
 
 class RoomEnv(DeterministicEnv):
     def __init__(self, spec, compute_transitions=True):
@@ -100,8 +97,8 @@ class RoomEnv(DeterministicEnv):
     def get_num_from_state(self, state):
         return self.state_num[state]
 
-    def get_state_from_num(self, state_num_id):
-        return self.num_state[state_num_id]
+    def get_state_from_num(self, num):
+        return self.num_state[num]
 
 
     def s_to_f(self, s):

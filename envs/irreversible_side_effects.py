@@ -2,6 +2,7 @@ import numpy as np
 from collections import defaultdict
 from copy import copy, deepcopy
 from gym import spaces
+from envs.env import DeterministicEnv
 from envs.utils import unique_perm, zeros_with_ones
 
 shift_coord_array = [(0, -1), (1, 0), (0, 1), (-1, 0)]
@@ -15,8 +16,19 @@ class BoxesEnvState(object):
         self.a_pos = np.array(a_pos, dtype='bool')
         self.b_pos = np.array(b_pos, dtype='bool')
 
+        self.a_pos_tuple = tuple(self.a_pos.flatten())
+        self.b_pos_tuple = tuple(self.b_pos.flatten())
 
-class BoxesEnv(object):
+    def __eq__(self, other):
+        return isinstance(other, BoxesEnvState) and \
+            self.a_pos_tuple == other.a_pos_tuple and \
+            self.b_pos_tuple == other.b_pos_tuple
+
+    def __hash__(self):
+        return hash(self.a_pos_tuple + self.b_pos_tuple)
+
+
+class BoxesEnv(DeterministicEnv):
     def __init__(self, spec, f_include_masks=False, compute_transitions=True):
         self.spec = spec
 
@@ -29,6 +41,7 @@ class BoxesEnv(object):
         self.nF = 4
         self.f_include_masks = f_include_masks
         f_len = len(self.s_to_f(self.init_state))
+        self.num_features = f_len
 
         self.r_vec = np.concatenate([np.array([0,0,0,1], dtype='float32'),
                                      np.zeros(f_len-self.nF, dtype='float32')])
@@ -37,13 +50,12 @@ class BoxesEnv(object):
         self.timestep = 0
 
         if compute_transitions:
-            self.enumerate_states()
-            self.make_f_matrix()
-            self.get_deterministic_transitions()
-            self.get_deterministic_transitions_transpose()
+            states = self.enumerate_states()
+            self.make_transition_matrices(
+                states, range(self.nA), self.nS, self.nA)
+            self.make_f_matrix(self.nS, self.num_features)
 
     def enumerate_states(self):
-        P = {}
         state_num = {}
         n_a_pos = np.sum(self.spec.agent_mask)
         n_b_pos = np.sum(self.spec.box_mask)
@@ -62,53 +74,22 @@ class BoxesEnv(object):
 
                 if not b_mask_pos[np.where(agent_mask_pos)[0][0]][np.where(agent_mask_pos)[1][0]]:
                     state = BoxesEnvState(agent_mask_pos, b_mask_pos)
-                    state_str = self.state_to_str(state)
 
-                    if state_str not in state_num:
-                        state_num[state_str] = len(state_num)
-
-        # Take every possible action from each of the possible states. Since the
-        # env is deterministic, this is sufficient to get transition probs
-        for state_str, state_num_id in state_num.items():
-            P[state_num_id] = {}
-            for action in range(self.nA):
-                statep = self.state_step(action, self.str_to_state(state_str))
-                statep_str = self.state_to_str(statep)
-                P[state_num_id][action] = [(1, state_num[statep_str], 0)]
+                    if state not in state_num:
+                        state_num[state] = len(state_num)
 
         self.state_num = state_num
         self.num_state = {v: k for k, v in self.state_num.items()}
-        self.P = P
-        self.nS = len(P.keys())
+        self.nS = len(state_num)
+
+        return state_num.keys()
 
 
-    def get_transition_matrix(self):
-        '''Create self.T, a matrix with index S,A,S' -> P(S'|S,A)      '''
-        self.T = np.zeros([self.nS, self.nA, self.nS])
-        for s in range(self.nS):
-            for a in range(self.nA):
-                self.T[s, a, self.P[s][a][0][1]] = 1
+    def get_num_from_state(self, state):
+        return self.state_num[state]
 
-
-    def get_deterministic_transitions(self):
-        '''Create self.deterministic_T, a matrix with index S,A -> S'   '''
-        self.deterministic_T = np.zeros((self.nS, self.nA), dtype='int32')
-        for s in range(self.nS):
-            for a in range(self.nA):
-                self.deterministic_T[s,a]=self.P[s][a][0][1]
-                
-    def get_deterministic_transitions_transpose(self):
-        '''Create self.deterministic_transpose, a matrix with index S,A -> S', with the inverse dynamics '''
-        self.deterministic_transpose = np.zeros((self.nS, self.nA), dtype='int32')
-        for s in range(self.nS):
-            for a in range(self.nA):
-                self.deterministic_transpose[self.P[s][a][0][1],a]=s
-
-
-    def make_f_matrix(self):
-         self.f_matrix = np.zeros((self.nS, self.nF))
-         for state_str, state_num_id in self.state_num.items():
-             self.f_matrix[state_num_id, :] = self.s_to_f(self.str_to_state(state_str))
+    def get_state_from_num(self, num):
+        return self.num_state[num]
 
 
     def s_to_f(self, s, include_masks=None):
@@ -144,14 +125,6 @@ class BoxesEnv(object):
         return np.concatenate([f, f_mask])
 
 
-    def reset(self):
-        self.timestep = 0
-        self.s = deepcopy(self.init_state)
-
-        obs = self.s_to_f(self.s)
-        return np.array(obs, dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
-
-
     def state_step(self, action, state=None):
         '''returns the next state given a state and an action'''
         action = int(action)
@@ -169,71 +142,39 @@ class BoxesEnv(object):
         b_coord_new = (-1, -1)
 
         # movement
-        if action in [0, 1, 2, 3]:
-            move_agent = shift_coord_array[action]
-            move_agent = (move_agent[0] + a_coord[0], move_agent[1] + a_coord[1])
+        if action not in [0, 1, 2, 3]:
+            raise ValueError("Invalid action {}".format(action))
 
-            # move_agent is not in the wall
-            if move_agent[0]>=0 and move_agent[0]<rows and move_agent[1]>=0 and move_agent[1]<cols:
-                if wall_mask[move_agent]==False:
-                    # if not moving into a box
-                    if state.b_pos[move_agent]==False:
-                        a_coord_new = (move_agent[0], move_agent[1])
-                    else:
-                        # tries to move box
-                        move_box = shift_coord_array[action]
-                        move_box = (move_box[0]*2 + a_coord[0], move_box[1]*2 + a_coord[1])
-                        if move_box[0]>=0 and move_box[0]<rows and move_box[1]>=0 and move_box[1]<cols:
-                            if wall_mask[move_box]==False and state.b_pos[move_box]==False:
-                                a_coord_new = (move_agent[0], move_agent[1])
-                                b_coord_new = (move_box[0], move_box[1])
+        move_agent = shift_coord_array[action]
+        move_agent = (move_agent[0] + a_coord[0], move_agent[1] + a_coord[1])
 
-
-            # update a_pos
-            a_pos_new = np.zeros_like(state.a_pos)
-            a_pos_new[a_coord_new] = True
-            state.a_pos = a_pos_new
-            # update b_pos
-            if b_coord_new != (-1, -1):
-                state.b_pos[a_coord_new] = False
-                state.b_pos[b_coord_new] = True
-
-        return state
+        # move_agent is not in the wall
+        if move_agent[0]>=0 and move_agent[0]<rows and move_agent[1]>=0 and move_agent[1]<cols:
+            if wall_mask[move_agent]==False:
+                # if not moving into a box
+                if state.b_pos[move_agent]==False:
+                    a_coord_new = (move_agent[0], move_agent[1])
+                else:
+                    # tries to move box
+                    move_box = shift_coord_array[action]
+                    move_box = (move_box[0]*2 + a_coord[0], move_box[1]*2 + a_coord[1])
+                    if move_box[0]>=0 and move_box[0]<rows and move_box[1]>=0 and move_box[1]<cols:
+                        if wall_mask[move_box]==False and state.b_pos[move_box]==False:
+                            a_coord_new = (move_agent[0], move_agent[1])
+                            b_coord_new = (move_box[0], move_box[1])
 
 
-    def step(self, action):
-        '''
-        given an action, takes a step from self.s, updates self.s and returns:
-        - the observation (features of the next state)
-        - the associated reward
-        - done, the indicator of completed episode
-        - info
-        '''
-        self.state_step(action)
-        self.timestep+=1
+        # update a_pos
+        a_pos_new = np.zeros_like(state.a_pos)
+        a_pos_new[a_coord_new] = True
+        b_pos_new = deepcopy(state.b_pos)
+        # update b_pos
+        if b_coord_new != (-1, -1):
+            b_pos_new[a_coord_new] = False
+            b_pos_new[b_coord_new] = True
 
-        obs = self.s_to_f(self.s)
-        done = False
-        if self.timestep>500: done=True
+        return BoxesEnvState(a_pos_new, b_pos_new)
 
-        info = defaultdict(lambda : '')
-        return np.array(obs, dtype='float32'), np.array(obs.T @ self.r_vec), np.array(done, dtype='bool'), info
-
-
-    def close(self):
-        self.reset()
-
-
-    def seed(self, seed=None):
-        pass
-
-
-    def reset(self):
-        self.timestep = 0
-        self.s = deepcopy(self.init_state)
-
-        obs = self.s_to_f(self.s)
-        return np.array([obs], dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
 
     def print_state(self, state, spec):
         '''
@@ -296,44 +237,3 @@ class BoxesEnv(object):
                 elif char_num==6:
                     print('█'+black_color, end='')
             print('')
-
-
-    def state_to_str(self, state):
-        '''
-        returns a string encoding of a state to serve as key in the state dictionary
-        '''
-        string = str(state.a_pos.shape[0]) + "," + str(state.a_pos.shape[1]) + ","
-        string += np.array_str(state.a_pos.flatten().astype(int), max_line_width=100000)
-        string += np.array_str(state.b_pos.flatten().astype(int), max_line_width=100000)
-        return string
-
-
-    def str_to_state(self, string):
-        '''
-        returns a state from a string encoding
-        assumes states are represented as binary masks
-        '''
-        cpos = string.find(",")
-        rows = int(string[:cpos])
-        string = string[cpos+1:]
-
-        cpos = string.find(",")
-        cols = int(string[:cpos])
-        string = string[cpos+1:]
-
-        cpos = string.find("]")
-        a_pos = string[1:cpos].split(" ")
-        a_pos = np.array(a_pos).reshape(rows, cols)
-        string = string[cpos+1:]
-
-        cpos = string.find("]")
-        b_pos = string[1:cpos].split(" ")
-        b_pos = np.array(b_pos).reshape(rows, cols)
-
-        return BoxesEnvState(a_pos, b_pos)
-
-    def get_num_from_state(self, state):
-        return self.state_num[self.state_to_str(state)]
-
-    def get_state_from_num(self, num):
-        return self.str_to_state(self.num_state[num])
