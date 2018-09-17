@@ -1,4 +1,6 @@
 import numpy as np
+from collections import defaultdict
+from copy import deepcopy
 
 class DeterministicEnv(object):
     def __init__(self):
@@ -17,11 +19,40 @@ class DeterministicEnv(object):
         self._make_deterministic_transition_matrix(nS, nA)
         self._make_deterministic_transition_transpose_matrix(nS, nA)
 
+
     def make_f_matrix(self, nS, num_features):
-         self.f_matrix = np.zeros((nS, num_features))
-         for state_id in self.P.keys():
-             state = self.get_state_from_num(state_id)
-             self.f_matrix[state_id, :] = self.s_to_f(state)
+        self.f_matrix = np.zeros((nS, num_features))
+        for state_id in self.P.keys():
+            state = self.get_state_from_num(state_id)
+            self.f_matrix[state_id, :] = self.s_to_f(state)
+
+
+    def reset(self):
+        self.timestep = 0
+        self.s = deepcopy(self.init_state)
+
+        obs = self.s_to_f(self.s)
+        return np.array(obs, dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
+
+
+    def step(self, action):
+        '''
+        given an action, takes a step from self.s, updates self.s and returns:
+        - the observation (features of the next state)
+        - the associated reward
+        - done, the indicator of completed episode
+        - info
+        '''
+        self.s = self.state_step(action)
+        self.timestep+=1
+
+        obs = self.s_to_f(self.s)
+        done = False
+        if self.timestep>500: done=True
+
+        info = defaultdict(lambda : '')
+        return np.array(obs, dtype='float32'), np.array(obs.T @ self.r_vec), np.array(done, dtype='bool'), info
+
 
     def _compute_transitions(self, states_iter, actions_iter):
         """

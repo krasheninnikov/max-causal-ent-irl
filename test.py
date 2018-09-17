@@ -33,7 +33,7 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize
     if current_s is None: 
         env.reset()
     else:
-        env.s = env.str_to_state(env.num_state[np.where(current_s)[0][0]])
+        env.s = env.get_state_from_num(np.where(current_s)[0][0])
 
     print("Executing policy:")
     env.print_state(env.s, env.spec); print()

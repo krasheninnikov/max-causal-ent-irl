@@ -334,3 +334,6 @@ class BoxesEnv(object):
 
     def get_num_from_state(self, state):
         return self.state_num[self.state_to_str(state)]
+
+    def get_state_from_num(self, num):
+        return self.str_to_state(self.num_state[num])

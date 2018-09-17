@@ -157,8 +157,8 @@ class BoxesEnvNoWallState7x9(object):
 
 
 BOXES_PROBLEMS = {
-    "wall->nowall": (BoxesEnvSpec7x9(True), BoxesEnvNoWallState7x9()),
-    "nowall->nowall": (BoxesEnvSpec7x9(False), BoxesEnvNoWallState7x9()),
-    "wall->nowall_small": (BoxesEnvSpec6x7(True), BoxesEnvNoWallState6x7()),
-    "nowall->nowall_small": (BoxesEnvSpec6x7(False), BoxesEnvNoWallState6x7()),
+    "wall:nowall": (BoxesEnvSpec7x9(True), BoxesEnvNoWallState7x9()),
+    "nowall:nowall": (BoxesEnvSpec7x9(False), BoxesEnvNoWallState7x9()),
+    "wall:nowall_small": (BoxesEnvSpec6x7(True), BoxesEnvNoWallState6x7()),
+    "nowall:nowall_small": (BoxesEnvSpec6x7(False), BoxesEnvNoWallState6x7()),
 }
