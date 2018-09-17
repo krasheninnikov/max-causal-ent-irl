@@ -331,3 +331,6 @@ class BoxesEnv(object):
         b_pos = np.array(b_pos).reshape(rows, cols)
 
         return BoxesEnvState(a_pos, b_pos)
+
+    def get_num_from_state(self, state):
+        return self.state_num[self.state_to_str(state)]

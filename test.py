@@ -39,7 +39,7 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize
     print("Executing policy:")
     env.print_state(env.s, env.spec); print()
     for i in range(steps_printed):
-        a = np.random.choice(env.nA, p=policy[env.state_num[env.state_to_str(env.s)],:])
+        a = np.random.choice(env.nA, p=policy[env.get_num_from_state(env.s),:])
         env.step(a)
         env.print_state(env.s, env.spec)
         
@@ -83,7 +83,7 @@ def experiment_wrapper(env_name='vases',
 
     if not uniform:
         p_0=np.zeros(env.nS)
-        p_0[env.state_num[env.state_to_str(env.init_state)]] = 1
+        p_0[env.get_num_from_state(env.init_state)] = 1
     else:
         p_0=np.ones(env.nS) / env.nS
     
@@ -92,15 +92,15 @@ def experiment_wrapper(env_name='vases',
     elif s_cur_string == "nowall":
         cur_state = BoxesEnvNoWallState7x9()
         s_current = np.zeros(env.nS)
-        s_current[env.state_num[env.state_to_str(cur_state)]] = 1
+        s_current[env.get_num_from_state(cur_state)] = 1
     elif s_cur_string == "nowall_small":
         cur_state = BoxesEnvNoWallState6x7()
         s_current = np.zeros(env.nS)
-        s_current[env.state_num[env.state_to_str(cur_state)]] = 1
+        s_current[env.get_num_from_state(cur_state)] = 1
     elif s_cur_string == "room":
         cur_state = RoomState((2, 2), {(2, 1): True})
         s_current = np.zeros(env.nS)
-        s_current[env.state_num[env.state_to_str(cur_state)]] = 1
+        s_current[env.get_num_from_state(cur_state)] = 1
         
     r_vec = env.r_vec
     if algorithm == "om":

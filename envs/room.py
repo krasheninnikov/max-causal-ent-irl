@@ -89,20 +89,19 @@ class RoomEnv(DeterministicEnv):
                         # Can't have the agent on an intact vase
                         continue
                     state = RoomState(pos, vase_states)
-                    state_str = self.state_to_str(state)
-                    if state_str not in state_num:
-                        state_num[state_str] = len(state_num)
+                    if state not in state_num:
+                        state_num[state] = len(state_num)
 
         self.state_num = state_num
         self.num_state = {v: k for k, v in self.state_num.items()}
         self.nS = len(state_num)
 
-        return (self.str_to_state(x) for x in state_num.keys())
+        return state_num.keys()
 
-    def get_state_num(self, state):
+    def get_num_from_state(self, state):
         return self.state_num[state]
 
-    def get_state_str_from_num(self, state_num_id):
+    def get_state_from_num(self, state_num_id):
         return self.num_state[state_num_id]
 
 
@@ -168,29 +167,6 @@ class RoomEnv(DeterministicEnv):
 
     def seed(self, seed=None):
         pass
-
-
-    def state_to_str(self, state):
-        '''
-        returns a string encoding of a state to serve as key in the state dictionary
-        '''
-        return state
-        # x, y = state.agent_pos
-        # vase_states_str = ','.join([str(int(state.vase_states[loc])) for loc in self.vase_locations])
-        # return str(x) + ',' + str(y) + ',' + vase_states_str
-
-
-    def str_to_state(self, string):
-        '''
-        returns a state from a string encoding
-        assumes states are represented as binary masks
-        '''
-        return string
-        # vals = string.split(',')
-        # agent_pos = int(vals[0]), int(vals[1])
-        # vase_bools = [bool(x) for x in vals[2:]]
-        # vase_states = dict(zip(self.vase_locations, vase_bools))
-        # return RoomState(agent_pos, vase_states)
 
 
     def print_state(self, state, spec=None):

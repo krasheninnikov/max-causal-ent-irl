@@ -19,10 +19,9 @@ class DeterministicEnv(object):
 
     def make_f_matrix(self, nS, num_features):
          self.f_matrix = np.zeros((nS, num_features))
-         for state_num_id in self.P.keys():
-             state_str = self.get_state_str_from_num(state_num_id)
-             state = self.str_to_state(state_str)
-             self.f_matrix[state_num_id, :] = self.s_to_f(state)
+         for state_id in self.P.keys():
+             state = self.get_state_from_num(state_id)
+             self.f_matrix[state_id, :] = self.s_to_f(state)
 
     def _compute_transitions(self, states_iter, actions_iter):
         """
@@ -34,14 +33,12 @@ class DeterministicEnv(object):
         P = {}
         actions = list(actions_iter)
         for state in states_iter:
-            state_str = self.state_to_str(state)
-            state_num_id = self.get_state_num(state_str)
-            P[state_num_id] = {}
+            state_id = self.get_num_from_state(state)
+            P[state_id] = {}
             for action in actions:
-                statep = self.state_step(action, self.str_to_state(state_str))
-                statep_str = self.state_to_str(statep)
-                statep_num_id = self.get_state_num(statep_str)
-                P[state_num_id][action] = [(1, statep_num_id, 0)]
+                statep = self.state_step(action, state)
+                statep_id = self.get_num_from_state(statep)
+                P[state_id][action] = [(1, statep_id, 0)]
 
         self.P = P
 

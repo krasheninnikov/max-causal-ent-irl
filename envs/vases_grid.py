@@ -368,6 +368,9 @@ class VasesGrid(object):
 
         return VasesEnvState(d_pos, v_pos, bv_pos, a_pos, t_pos, carrying, table_pos)
 
+    def get_num_from_state(self, state):
+        return self.state_num[self.state_to_str(state)]
+
 
     def print_state(self, state, spec=None):
         '''
