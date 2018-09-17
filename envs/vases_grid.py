@@ -22,17 +22,17 @@ class VasesEnvState(object):
 
 
 class VasesGrid(object):
-    def __init__(self, spec, init_state, f_include_masks=False, compute_transitions=True):
+    def __init__(self, spec, f_include_masks=False, compute_transitions=True):
         self.spec = spec
 
-        self.init_state = deepcopy(init_state)
-        self.s = deepcopy(init_state)
+        self.init_state = deepcopy(spec.init_state)
+        self.s = deepcopy(self.init_state)
 
         self.nA = 5
         self.action_space = spaces.Discrete(self.nA)
 
         self.f_include_masks = f_include_masks
-        f_len = len(self.s_to_f(init_state))
+        f_len = len(self.s_to_f(self.init_state))
         self.r_vec = np.concatenate([np.array([0,0,1,0,0,0], dtype='float32'),
                                      np.zeros(f_len-6, dtype='float32')])
         self.observation_space = spaces.Box(low=0, high=255, shape=self.r_vec.shape, dtype=np.float32)
@@ -367,6 +367,12 @@ class VasesGrid(object):
         carrying = [int(string[0]), int(string[1])]
 
         return VasesEnvState(d_pos, v_pos, bv_pos, a_pos, t_pos, carrying, table_pos)
+
+    def get_num_from_state(self, state):
+        return self.state_num[self.state_to_str(state)]
+
+    def get_state_from_num(self, num):
+        return self.str_to_state(self.num_state[num])
 
 
     def print_state(self, state, spec=None):

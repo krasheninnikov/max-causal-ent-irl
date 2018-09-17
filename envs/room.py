@@ -2,16 +2,9 @@ import numpy as np
 from collections import defaultdict
 from copy import copy, deepcopy
 from gym import spaces
-from envs.utils import unique_perm, Direction
 
-
-def all_boolean_assignments(n):
-    if n == 0:
-        yield []
-        return
-    for assignment in all_boolean_assignments(n - 1):
-        yield [True] + assignment
-        yield [False] + assignment
+from envs.env import DeterministicEnv
+from envs.utils import unique_perm, Direction, all_boolean_assignments
 
 
 class RoomState(object):
@@ -20,17 +13,26 @@ class RoomState(object):
     '''
     def __init__(self, agent_pos, vase_states):
         """
-        agent_pos:   Numpy mask of booleans, with a single True value
-            corresponding to the agent's location
-        vase_states: Numpy mask of booleans, where True denotes the presence of
-            an intact vase, while False means that the vase is broken or that
-            there is no vase.
+        agent_pos: (x, y) tuple for the agent's location
+        vase_states: Dictionary mapping (x, y) tuples to booleans, where True
+            means that the vase is intact
         """
         self.agent_pos = agent_pos
         self.vase_states = vase_states
 
+    def __eq__(self, other):
+        return isinstance(other, RoomState) and \
+            self.agent_pos == other.agent_pos and \
+            self.vase_states == other.vase_states
 
-class RoomEnv(object):
+    def __hash__(self):
+        return hash(self.agent_pos) + hash(tuple(self.vase_states.values()))
+
+    def __str__(self):
+        return '<Agent: {}, Vases: {}>'.format(self.agent_pos, self.vase_states)
+
+
+class RoomEnv(DeterministicEnv):
     def __init__(self, spec, compute_transitions=True):
         """
         height: Integer, height of the grid. Y coordinates are in [0, height).
@@ -50,7 +52,6 @@ class RoomEnv(object):
         self.num_vases = len(self.vase_locations)
         self.carpet_locations = set(spec.carpet_locations)
         self.feature_locations = list(spec.feature_locations)
-        self.s = deepcopy(self.init_state)
         self.spec = None  # TODO: Remove this line? test.py might use it?
 
         self.nA = 4
@@ -61,17 +62,16 @@ class RoomEnv(object):
         self.r_vec = np.array([0,1,0,1,0], dtype='float32')
         self.observation_space = spaces.Box(low=0, high=255, shape=self.r_vec.shape, dtype=np.float32)
 
-        self.timestep = 0
+        self.reset()
 
         if compute_transitions:
-            self.enumerate_states()
-            self.make_f_matrix()
-            self.get_deterministic_transitions()
-            self.get_deterministic_transitions_transpose()
+            states = self.enumerate_states()
+            self.make_transition_matrices(
+                states, range(self.nA), self.nS, self.nA)
+            self.make_f_matrix(self.nS, self.num_features)
 
 
     def enumerate_states(self):
-        P = {}
         state_num = {}
 
         # Possible vase states
@@ -85,52 +85,20 @@ class RoomEnv(object):
                         # Can't have the agent on an intact vase
                         continue
                     state = RoomState(pos, vase_states)
-                    state_str = self.state_to_str(state)
-                    if state_str not in state_num:
-                        state_num[state_str] = len(state_num)
-
-        # Take every possible action from each of the possible states. Since the
-        # env is deterministic, this is sufficient to get transition probs
-        for state_str, state_num_id in state_num.items():
-            P[state_num_id] = {}
-            for action in range(self.nA):
-                statep = self.state_step(action, self.str_to_state(state_str))
-                statep_str = self.state_to_str(statep)
-                P[state_num_id][action] = [(1, state_num[statep_str], 0)]
+                    if state not in state_num:
+                        state_num[state] = len(state_num)
 
         self.state_num = state_num
         self.num_state = {v: k for k, v in self.state_num.items()}
-        self.P = P
-        self.nS = len(P.keys())
+        self.nS = len(state_num)
 
+        return state_num.keys()
 
-    def get_transition_matrix(self):
-        '''Create self.T, a matrix with index S,A,S' -> P(S'|S,A)      '''
-        self.T = np.zeros([self.nS, self.nA, self.nS])
-        for s in range(self.nS):
-            for a in range(self.nA):
-                self.T[s, a, self.P[s][a][0][1]] = 1
+    def get_num_from_state(self, state):
+        return self.state_num[state]
 
-
-    def get_deterministic_transitions(self):
-        '''Create self.deterministic_T, a matrix with index S,A -> S'   '''
-        self.deterministic_T = np.zeros((self.nS, self.nA), dtype='int32')
-        for s in range(self.nS):
-            for a in range(self.nA):
-                self.deterministic_T[s,a]=self.P[s][a][0][1]
-                
-    def get_deterministic_transitions_transpose(self):
-        '''Create self.deterministic_transpose, a matrix with index S,A -> S', with the inverse dynamics '''
-        self.deterministic_transpose = np.zeros((self.nS, self.nA), dtype='int32')
-        for s in range(self.nS):
-            for a in range(self.nA):
-                self.deterministic_transpose[self.P[s][a][0][1],a]=s
-
-
-    def make_f_matrix(self):
-         self.f_matrix = np.zeros((self.nS, self.num_features))
-         for state_str, state_num_id in self.state_num.items():
-             self.f_matrix[state_num_id, :] = self.s_to_f(self.str_to_state(state_str))
+    def get_state_from_num(self, num):
+        return self.num_state[num]
 
 
     def s_to_f(self, s):
@@ -145,14 +113,6 @@ class RoomEnv(object):
         features = [int(s.agent_pos == fpos) for fpos in self.feature_locations]
         features = np.array([num_broken_vases, carpet_feature] + features)
         return features
-
-
-    def reset(self):
-        self.timestep = 0
-        self.s = deepcopy(self.init_state)
-
-        obs = self.s_to_f(self.s)
-        return np.array(obs, dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
 
 
     def state_step(self, action, state=None):
@@ -170,54 +130,6 @@ class RoomEnv(object):
         return RoomState(new_agent_pos, new_vase_states)
 
 
-    def step(self, action):
-        '''
-        given an action, takes a step from self.s, updates self.s and returns:
-        - the observation (features of the next state)
-        - the associated reward
-        - done, the indicator of completed episode
-        - info
-        '''
-        self.state_step(action)
-        self.timestep+=1
-
-        obs = self.s_to_f(self.s)
-        done = False
-        if self.timestep>500: done=True
-
-        info = defaultdict(lambda : '')
-        return np.array(obs, dtype='float32'), np.array(obs.T @ self.r_vec), np.array(done, dtype='bool'), info
-
-
-    def close(self):
-        self.reset()
-
-
-    def seed(self, seed=None):
-        pass
-
-
-    def state_to_str(self, state):
-        '''
-        returns a string encoding of a state to serve as key in the state dictionary
-        '''
-        x, y = state.agent_pos
-        vase_states_str = ','.join([str(int(state.vase_states[loc])) for loc in self.vase_locations])
-        return str(x) + ',' + str(y) + ',' + vase_states_str
-
-
-    def str_to_state(self, string):
-        '''
-        returns a state from a string encoding
-        assumes states are represented as binary masks
-        '''
-        vals = string.split(',')
-        agent_pos = int(vals[0]), int(vals[1])
-        vase_bools = [bool(x) for x in vals[2:]]
-        vase_states = dict(zip(self.vase_locations, vase_bools))
-        return RoomState(agent_pos, vase_states)
-
-
     def print_state(self, state, spec=None):
         '''
         Renders the state. Each tile in the gridworld corresponds to a 2x2 cell in
@@ -232,7 +144,7 @@ class RoomEnv(object):
         the agent and the table are never in the same cell.
         '''
         h, w = self.height, self.width
-        canvas = np.zeros(tuple([3*h-1, 2*w+1]), dtype='int8')
+        canvas = np.zeros(tuple([2*h-1, 3*w+1]), dtype='int8')
 
         # cell borders
         for y in range(1, canvas.shape[0], 2):
