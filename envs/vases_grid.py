@@ -172,7 +172,9 @@ class VasesGrid(DeterministicEnv):
         action = int(action)
 
         if state==None: state = self.s
-        new_state = deepcopy(state)
+        new_v_pos, new_bv_pos, new_a_pos, new_t_pos, new_carrying = map(
+            deepcopy,
+            [state.v_pos, state.bv_pos, state.a_pos, state.t_pos, state.carrying])
 
         d_mask = self.spec.d_mask
         n, m = d_mask.shape
@@ -196,9 +198,8 @@ class VasesGrid(DeterministicEnv):
             a_coord_new = (action, a_coord_new[1], a_coord_new[2])
 
             # update a_pos
-            a_pos_new = np.zeros_like(state.a_pos)
-            a_pos_new[a_coord_new] = True
-            new_state.a_pos = a_pos_new
+            new_a_pos = np.zeros_like(state.a_pos)
+            new_a_pos[a_coord_new] = True
 
         elif action==4:
             obj_coord = shift_coord_array[int(a_coord[0])]
@@ -210,13 +211,13 @@ class VasesGrid(DeterministicEnv):
                 if state.carrying[0] + state.carrying[1] == 0:
                     # vase
                     if state.v_pos[obj_coord] == True:
-                        new_state.v_pos[obj_coord] = False
-                        new_state.carrying[0] = 1
+                        new_v_pos[obj_coord] = False
+                        new_carrying[0] = 1
 
                     # tablecloth
                     elif state.t_pos[obj_coord] == True:
-                        new_state.t_pos[obj_coord] = False
-                        new_state.carrying[1] = 1
+                        new_t_pos[obj_coord] = False
+                        new_carrying[1] = 1
 
                 # Try to put down an object
                 else:
@@ -224,25 +225,25 @@ class VasesGrid(DeterministicEnv):
                     if state.carrying[0] == 1 and state.v_pos[obj_coord] == False:
                         # vase doesn't break
                         if self.spec.d_mask[obj_coord]:
-                            new_state.v_pos[obj_coord] = True
-                            new_state.carrying[0] = 0
+                            new_v_pos[obj_coord] = True
+                            new_carrying[0] = 0
 
                         # vase breaks
                         elif self.spec.bv_mask[obj_coord]:
                             # not allowing two broken vases in one spot
                             if state.bv_pos[obj_coord] == False:
-                                new_state.bv_pos[obj_coord] = True
-                                new_state.carrying[0] = 0
+                                new_bv_pos[obj_coord] = True
+                                new_carrying[0] = 0
 
                     # carrying a tablecloth
                     if state.carrying[1] == 1 and self.spec.t_mask[obj_coord]:
                         # cannot put into a cell already containing tablecloth or
                         # a vase (tablecloths go under vases)
                         if not state.t_pos[obj_coord] and not state.v_pos[obj_coord]:
-                            new_state.t_pos[obj_coord] = True
-                            new_state.carrying[1] = 0
+                            new_t_pos[obj_coord] = True
+                            new_carrying[1] = 0
 
-        return new_state
+        return VasesEnvState(new_v_pos, new_bv_pos, new_a_pos, new_t_pos, new_carrying)
 
 
     def print_state(self, state, spec=None):
