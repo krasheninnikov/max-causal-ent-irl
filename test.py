@@ -27,7 +27,8 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize
     if penalize_deviation:
         r_s += np.sqrt(np.sum((env.f_matrix - env.s_to_f(env.s).T) ** 2, axis=1))
     if relative_reachability:
-        r_s += relative_reachability_penalty(env, h, env.s)
+        r_r = relative_reachability_penalty(env, h, env.s)
+        r_s -= r_r
     V, Q, policy = vi_boltzmann_deterministic(env, 1, r_s, h, temp) 
     
     if current_s is None: 
@@ -37,10 +38,14 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize
 
     print("Executing policy:")
     env.print_state(env.s, env.spec); print()
+    # steps = [4, 1, 4, 1]
     for i in range(steps_printed):
         a = np.random.choice(env.nA, p=policy[env.get_num_from_state(env.s),:])
+        # a = steps[i]
         env.step(a)
         env.print_state(env.s, env.spec)
+        # print(env.get_num_from_state(env.s))
+        # print(r_r[env.get_num_from_state(env.s)])
         
         obs = env.s_to_f(env.s)
         
