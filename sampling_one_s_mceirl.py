@@ -23,6 +23,7 @@ def policy_walk_last_state_prob(env, s_current, p_0, h, temp, n_samples,
     p(r | s_T, r_spec) \propto  p(s_T | \theta) * p(r | r_spec).
     '''
     i=0
+    times_accepted=0
     a_list = []
 
     log_p = np.log(.5)
@@ -41,6 +42,7 @@ def policy_walk_last_state_prob(env, s_current, p_0, h, temp, n_samples,
         a = np.exp(log_p_1-log_p)
         # accept or reject the new sample
         if np.random.uniform()<np.amin(np.array([1, a])):
+            times_accepted += 1
             samples.append(r_prime)
             r = np.copy(r_prime)
             #V = np.copy(V_prime)
@@ -71,6 +73,7 @@ def policy_walk_last_state_prob(env, s_current, p_0, h, temp, n_samples,
                 print(step_size)
 
         if len(samples)==n_samples:
+            print('fraction accepted: ', times_accepted/n_samples)
             return samples
 
 

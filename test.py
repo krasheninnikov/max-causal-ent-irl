@@ -94,7 +94,7 @@ def experiment_wrapper(env_name='vases',
                        measures=['result'],
                        n_samples=1000,
                        mcmc_burn_in=400,
-                       step_size=.1):
+                       step_size=.01):
     env, s_current = get_env_and_s_current(env_name, problem_name)
     print('Initial state:')
     env.print_state(env.init_state, env.spec)
@@ -131,13 +131,15 @@ def experiment_wrapper(env_name='vases',
             r_prior = laplace_distr(env.r_vec, 1)
         elif prior == "uniform":
             scale=2
-            loc=np.zeros_like(env.r_vec)
-            #loc=env.r_vec-.5*scale;
+            #loc=np.zeros_like(env.r_vec)
+            loc=env.r_vec-.5*scale;
             r_prior = uniform_distr(loc=loc, scale=scale);
         elif prior == "none":
             r_prior = None
 
-        r_samples = policy_walk_last_state_prob(env, s_current, p_0, horizon, temp, n_samples, step_size, r_prior)
+        r_samples = policy_walk_last_state_prob(env, s_current, p_0, horizon,
+                                            temp, n_samples, step_size, r_prior,
+                                            adaptive_step_size=False)
         r_vec = np.mean(r_samples[mcmc_burn_in::], axis=0)
     elif algorithm == "pass":
         pass
@@ -204,6 +206,10 @@ def parse_args(args=None):
                         help='Dependent variables to measure and report')
     parser.add_argument('-o', '--output_folder', type=str, default='results',
                         help='Output folder')
+    parser.add_argument('-n', '--n_samples', type=str, default='1000',
+                        help='number of samples to generate with MCMC')
+    parser.add_argument('-b', '--mcmc_burn_in', type=str, default='400',
+                        help='number of samples to ignore at the start')
     return parser.parse_args(args)
 
 
@@ -225,6 +231,8 @@ def setup_experiment(args):
     add_to_dict('learning_rate', [float(lr) for lr in args.learning_rate.split(',')])
     add_to_dict('epochs', [int(epochs) for epochs in args.epochs.split(',')])
     add_to_dict('uniform', [u != "False" for u in args.uniform_prior.split(',')])
+    add_to_dict('n_samples', [int(n_samples) for n_samples in args.n_samples.split(',')])
+    add_to_dict('mcmc_burn_in', [int(mcmc_burn_in) for mcmc_burn_in in args.mcmc_burn_in.split(',')])
     return indep_vars_dict, control_vars_dict, args.dependent_vars.split(',')
 
 
