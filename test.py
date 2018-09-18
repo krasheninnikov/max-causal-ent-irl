@@ -3,6 +3,8 @@ import csv
 import datetime
 import numpy as np
 import sys
+from colorama import init as colorama_init
+from scipy.stats import uniform as uniform_distr
 
 from envs.vases_grid import VasesGrid, VasesEnvState
 from envs.vases_spec import VASES_PROBLEMS
@@ -15,10 +17,12 @@ from envs.room_spec import ROOM_PROBLEMS
 
 from envs.utils import unique_perm, zeros_with_ones, printoptions
 
+from sampling_one_s_mceirl import policy_walk_last_state_prob, log_last_step_om
 from principled_frame_cond_features import om_method, norm_distr, laplace_distr
 from relative_reachability import relative_reachability_penalty
 
 from value_iter_and_policy import vi_boltzmann, vi_boltzmann_deterministic
+
 
 def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize_deviation=False, relative_reachability=False):
     '''Given an env and R, runs soft VI for h steps and rolls out the resulting policy'''
@@ -29,9 +33,9 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize
     if relative_reachability:
         r_r = relative_reachability_penalty(env, h, env.s)
         r_s -= r_r
-    V, Q, policy = vi_boltzmann_deterministic(env, 1, r_s, h, temp) 
-    
-    if current_s is None: 
+    V, Q, policy = vi_boltzmann_deterministic(env, 1, r_s, h, temp)
+
+    if current_s is None:
         env.reset()
     else:
         env.s = env.get_state_from_num(np.where(current_s)[0][0])
@@ -46,9 +50,9 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize
         env.print_state(env.s, env.spec)
         # print(env.get_num_from_state(env.s))
         # print(r_r[env.get_num_from_state(env.s)])
-        
+
         obs = env.s_to_f(env.s)
-        
+
         print(obs, obs.T @ env.r_vec)
         print()
 
@@ -82,12 +86,15 @@ def experiment_wrapper(env_name='vases',
                        algorithm='om',
                        rl_algorithm='vi',
                        prior='none',
-                       horizon=22, #number of steps we assume the expert was acting previously
+                       horizon=50, #number of steps we assume the expert was acting previously
                        temp=1,
                        learning_rate=.1,
                        epochs=200,
                        uniform=False,
-                       measures=['result']):
+                       measures=['result'],
+                       n_samples=1000,
+                       mcmc_burn_in=400,
+                       step_size=.1):
     env, s_current = get_env_and_s_current(env_name, problem_name)
     print('Initial state:')
     env.print_state(env.init_state, env.spec)
@@ -97,11 +104,11 @@ def experiment_wrapper(env_name='vases',
         p_0[env.get_num_from_state(env.init_state)] = 1
     else:
         p_0=np.ones(env.nS) / env.nS
-        
+
     r_vec = env.r_vec
     penalize_deviation = False
     if algorithm == "om":
-        task_weight = 2 
+        task_weight = 2
         safety_weight = 1
         if prior == "gaussian":
             r_prior = norm_distr(env.r_vec, 1)
@@ -117,6 +124,21 @@ def experiment_wrapper(env_name='vases',
             print(); print('Final reward vector: ', r_vec)
     elif algorithm == "pen_dev":
         penalize_deviation = True
+    elif algorithm == "om-sampling":
+        if prior == "gaussian":
+            r_prior = norm_distr(env.r_vec, 1)
+        elif prior == "laplace":
+            r_prior = laplace_distr(env.r_vec, 1)
+        elif prior == "uniform":
+            scale=2
+            loc=np.zeros_like(env.r_vec)
+            #loc=env.r_vec-.5*scale;
+            r_prior = uniform_distr(loc=loc, scale=scale);
+        elif prior == "none":
+            r_prior = None
+
+        r_samples = policy_walk_last_state_prob(env, s_current, p_0, horizon, temp, n_samples, step_size, r_prior)
+        r_vec = np.mean(r_samples[mcmc_burn_in::], axis=0)
     elif algorithm == "pass":
         pass
     else:
@@ -124,7 +146,7 @@ def experiment_wrapper(env_name='vases',
 
     if rl_algorithm == "vi":
         forward_rl(env, r_vec, current_s=s_current, penalize_deviation=penalize_deviation)
-    elif rl_algorithm == "test": 
+    elif rl_algorithm == "test":
         np.random.seed(0)
         env.reset()
         for a in [0, 1, 2, 2, 2, 1]:
@@ -208,6 +230,7 @@ def setup_experiment(args):
 
 def main():
     args = parse_args()
+    colorama_init()
     indep_vars_dict, control_vars_dict, dependent_vars = setup_experiment(args)
     print(indep_vars_dict, control_vars_dict, dependent_vars)
     # For now, restrict to zero or one independent variables, but it
