@@ -3,7 +3,6 @@ import csv
 import datetime
 import numpy as np
 import sys
-from colorama import init as colorama_init
 from scipy.stats import uniform as uniform_distr
 
 from envs.vases_grid import VasesGrid, VasesEnvState
@@ -17,22 +16,24 @@ from envs.room_spec import ROOM_PROBLEMS
 
 from envs.utils import unique_perm, zeros_with_ones, printoptions
 
-from sampling_one_s_mceirl import policy_walk_last_state_prob, log_last_step_om
+from sampling_one_s_mceirl import policy_walk_last_state_prob
 from principled_frame_cond_features import om_method, norm_distr, laplace_distr
 from relative_reachability import relative_reachability_penalty
 
 from value_iter_and_policy import vi_boltzmann, vi_boltzmann_deterministic
 
 
-def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize_deviation=False, relative_reachability=False):
+def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None,
+               weight=1, penalize_deviation=False, relative_reachability=False,
+               print_level=1):
     '''Given an env and R, runs soft VI for h steps and rolls out the resulting policy'''
 
     r_s = env.f_matrix @ r
     if penalize_deviation:
-        r_s += np.sqrt(np.sum((env.f_matrix - env.s_to_f(env.s).T) ** 2, axis=1))
+        r_s += weight * np.sqrt(np.sum((env.f_matrix - env.s_to_f(env.s).T) ** 2, axis=1))
     if relative_reachability:
         r_r = relative_reachability_penalty(env, h, env.s)
-        r_s -= r_r
+        r_s -= weight * r_r
     V, Q, policy = vi_boltzmann_deterministic(env, 1, r_s, h, temp)
 
     if current_s is None:
@@ -40,21 +41,23 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None, penalize
     else:
         env.s = env.get_state_from_num(np.where(current_s)[0][0])
 
-    print("Executing policy:")
-    env.print_state(env.s, env.spec); print()
+    if print_level >= 1:
+        print("Executing policy:")
+        env.print_state(env.s, env.spec); print()
+
     # steps = [4, 1, 4, 1]
     for i in range(steps_printed):
         a = np.random.choice(env.nA, p=policy[env.get_num_from_state(env.s),:])
         # a = steps[i]
         env.step(a)
-        env.print_state(env.s, env.spec)
-        # print(env.get_num_from_state(env.s))
-        # print(r_r[env.get_num_from_state(env.s)])
-
         obs = env.s_to_f(env.s)
 
-        print(obs, obs.T @ env.r_vec)
-        print()
+        if print_level >= 1:
+            env.print_state(env.s, env.spec)
+            # print(env.get_num_from_state(env.s))
+            # print(r_r[env.get_num_from_state(env.s)])
+            print(obs, obs.T @ env.r_vec)
+            print()
 
 PROBLEMS = {
     'room': ROOM_PROBLEMS,
@@ -81,91 +84,147 @@ def get_env_and_s_current(env_name, problem_name):
     return env, s_current
 
 
+def get_r_prior(prior, reward_center):
+    if prior == "gaussian":
+        return norm_distr(reward_center, 1)
+    elif prior == "laplace":
+        return laplace_distr(reward_center, 1)
+    elif prior == "uniform":
+        return None
+    else:
+        raise ValueError('Unknown prior {}'.format(prior))
+
+
 def experiment_wrapper(env_name='vases',
-                       problem_name='default',
-                       algorithm='om',
-                       rl_algorithm='vi',
-                       prior='none',
-                       horizon=50, #number of steps we assume the expert was acting previously
-                       temp=1,
+                       problem_spec='default',
+                       inference_algorithm='mceirl',
+                       combination_algorithm='add_rewards',
+                       prior='gaussian',
+                       horizon=25,
+                       temperature=1,
                        learning_rate=.1,
+                       inferred_weight=1,
                        epochs=200,
-                       uniform=False,
-                       measures=['result'],
+                       uniform_prior=False,
+                       measures=['final_reward'],
                        n_samples=1000,
                        mcmc_burn_in=400,
-                       step_size=.01):
-    env, s_current = get_env_and_s_current(env_name, problem_name)
-    print('Initial state:')
-    env.print_state(env.init_state, env.spec)
-    print()
-    if not uniform:
+                       step_size=.01,
+                       print_level=1):
+    # Check the parameters so that we fail fast
+    assert inference_algorithm in ['mceirl', 'sampling', 'deviation', 'reachability', 'pass']
+    assert combination_algorithm in ['add_rewards', 'use_prior']
+    assert prior in ['gaussian', 'laplace', 'uniform']
+    assert all((measure in ['final_reward'] for measure in measures))
+    if combination_algorithm == 'use_prior':
+        assert inference_algorithm in ['mceirl', 'sampling']
+
+    # TODO: have the task reward and true reward in the problem spec, and
+    # evaluate according to the true reward
+    env, s_current = get_env_and_s_current(env_name, problem_spec)
+
+    if print_level >= 1:
+        print('Initial state:')
+        env.print_state(env.init_state, env.spec)
+        print()
+
+    if not uniform_prior:
         p_0=np.zeros(env.nS)
         p_0[env.get_num_from_state(env.init_state)] = 1
     else:
         p_0=np.ones(env.nS) / env.nS
 
-    r_vec = env.r_vec
-    penalize_deviation = False
-    if algorithm == "om":
-        task_weight = 2
-        safety_weight = 1
-        if prior == "gaussian":
-            r_prior = norm_distr(env.r_vec, 1)
-        elif prior == "laplace":
-            r_prior = laplace_distr(env.r_vec, 1)
-        elif prior == "none":
-            r_prior = None
+    r_task = env.r_vec
+    deviation = inference_algorithm == "deviation"
+    reachability = inference_algorithm == "reachability"
+    reward_center = r_task if combination_algorithm == "use_prior" else np.zeros(env.num_features)
+    r_prior = get_r_prior(prior, reward_center)
 
-        om_vec = om_method(env, s_current, p_0, horizon, temp, epochs, learning_rate, r_prior)
-        om_vec = om_vec / np.linalg.norm(om_vec)
-        r_vec = task_weight * r_vec + safety_weight * om_vec
-        with printoptions(precision=4, suppress=True):
-            print(); print('Final reward vector: ', r_vec)
-    elif algorithm == "pen_dev":
-        penalize_deviation = True
-    elif algorithm == "om-sampling":
-        if prior == "gaussian":
-            r_prior = norm_distr(env.r_vec, 1)
-        elif prior == "laplace":
-            r_prior = laplace_distr(env.r_vec, 1)
-        elif prior == "uniform":
-            scale=2
-            #loc=np.zeros_like(env.r_vec)
-            loc=env.r_vec-.5*scale;
-            r_prior = uniform_distr(loc=loc, scale=scale);
-        elif prior == "none":
-            r_prior = None
-
-        r_samples = policy_walk_last_state_prob(env, s_current, p_0, horizon,
-                                            temp, n_samples, step_size, r_prior,
-                                            adaptive_step_size=False)
-        r_vec = np.mean(r_samples[mcmc_burn_in::], axis=0)
-    elif algorithm == "pass":
-        pass
+    # TODO: Normalization of task and inferred rewards
+    if inference_algorithm == "mceirl":
+        r_inferred = om_method(env, s_current, p_0, horizon, temperature, epochs, learning_rate, r_prior)
+        # r_inferred = r_inferred / np.linalg.norm(r_inferred)
+    elif inference_algorithm == "sampling":
+        r_samples = policy_walk_last_state_prob(
+            env, s_current, p_0, horizon, temperature, n_samples, step_size,
+            r_prior, adaptive_step_size=False)
+        r_inferred = np.mean(r_samples[mcmc_burn_in::], axis=0)
+    elif inference_algorithm in ["deviation", "reachability", "pass"]:
+        r_inferred = None
     else:
-        raise ValueError('Unknown algorithm: {}'.format(algorithm))
+        raise ValueError('Unknown inference algorithm: {}'.format(inference_algorithm))
 
-    if rl_algorithm == "vi":
-        forward_rl(env, r_vec, current_s=s_current, penalize_deviation=penalize_deviation)
-    elif rl_algorithm == "test":
-        np.random.seed(0)
-        env.reset()
-        for a in [0, 1, 2, 2, 2, 1]:
-            env.step(a)
-            env.print_state(env.s, env.spec)
-    elif rl_algorithm == "relative_reachability":
-        forward_rl(env, r_vec, current_s=s_current, penalize_deviation=penalize_deviation, relative_reachability=True)
+    if print_level >= 1 and r_inferred is not None:
+        with printoptions(precision=4, suppress=True):
+            print(); print('Inferred reward vector: ', r_inferred)
 
-    return r_vec
+    # Run forward RL to evaluate
+    if combination_algorithm == "add_rewards":
+        r_final = r_task
+        if r_inferred is not None:
+            r_final = r_task + inferred_weight * r_inferred
+        forward_rl(env, r_final, current_s=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
+    elif combination_algorithm == "use_prior":
+        assert r_inferred is not None
+        assert (not deviation) and (not reachability)
+        r_final = r_inferred
+        forward_rl(env, r_final, current_s=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
+    else:
+        raise ValueError('Unknown combination algorithm: {}'.format(combination_algorithm))
 
+    def get_measure(measure):
+        if measure == 'final_reward':
+            return r_final
+        else:
+            raise ValueError('Unknown measure {}'.format(measure))
+
+    return [get_measure(measure) for measure in measures]
+
+
+
+# The command line parameters that should be included in the filename of the
+# file summarizing the results.
+PARAMETERS = [
+    ('-e', '--env_name', 'room', None,
+     'Environment to run: one of [vases, boxes, room]'),
+    ('-s', '--problem_spec', 'simple', None,
+     'The name of the problem specification to solve.'),
+    ('-i', '--inference_algorithm', 'pass', None,
+     'Frame condition inference algorithm: one of [mceirl, sampling, deviation, reachability, pass].'),
+    ('-c', '--combination_algorithm', 'add_rewards', None,
+     'How to combine the task reward and inferred reward for forward RL: one of [add_rewards, use_prior]. use_prior only has an effect if algorithm is mceirl or sampling.'),
+    ('-r', '--prior', 'gaussian', None,
+     'Prior on the inferred reward function: one of [gaussian, laplace, uniform]. Centered at zero if combination_algorithm is add_rewards, and at the task reward if combination_algorithm is use_prior. Only has an effect if inference_algorithm is mceirl or sampling.'),
+    ('-H', '--horizon', '20', int,
+     'Number of timesteps we assume the human has been acting.'),
+    ('-t', '--temperature', '1.0', float,
+     'Boltzmann rationality constant for the human. Note this is temperature, which is the inverse of beta.'),
+    ('-l', '--learning_rate', '0.1', float,
+     'Learning rate for gradient descent. Applies when inference_algorithm is mceirl.'),
+    ('-k', '--inferred_weight', '1', float,
+     'Weight for the inferred reward when adding task and inferred rewards. Applies if combination_algorithm is add_rewards.'),
+    ('-p', '--epochs', '100', int,
+     'Number of gradient descent steps to take.'),
+    ('-u', '--uniform_prior', 'False', lambda x: x != 'False',
+     'Whether to use a uniform prior over initial states, or to know the initial state. Either true or false.'),
+    ('-d', '--dependent_vars', 'final_reward', None,
+     'Dependent variables to measure and report'),
+    ('-n', '--n_samples', '1000', int,
+     'Number of samples to generate with MCMC'),
+    ('-b', '--mcmc_burn_in', '400', int,
+     'Number of samples to ignore at the start'),
+    ('-z', '--step_size', '0.01', float,
+     'Step size for computing neighbor reward functions. Only has an effect if inference_algorithm is sampling.'),
+]
 
 # Writing output for experiments
 def get_filename(args):
-    filename = '{}-env={}-algorithm={}-rl_algorithm={}-state={}-prior={}-horizon={}-temperature={}-learning_rate={}-epochs={}-uniform_prior={}-dependent_vars={}.csv'
-    filename = filename.format(
-        str(datetime.datetime.now()), args.env, args.algorithm,
-        args.rl_algorithm, args.state, args.prior, args.horizon, args.temperature, args.learning_rate, args.epochs, args.uniform_prior, args.dependent_vars)
+    # Drop the '--' in front of the names
+    param_names = [name[2:] for _, name, _, _, _ in PARAMETERS]
+    param_values = [args.__dict__[name] for name in param_names]
+
+    filename = '{}-' + '={}-'.join(param_names) + '={}.csv'
+    filename = filename.format(str(datetime.datetime.now()), *param_values)
     return args.output_folder + '/' + filename
 
 def write_output(results, indep_var, indep_vals, dependent_vars, args):
@@ -174,77 +233,52 @@ def write_output(results, indep_var, indep_vals, dependent_vars, args):
         writer.writeheader()
         for indep_val, result in zip(indep_vals, results):
             row = {}
-            row[dependent_vars[0]] = result
             row[indep_var] = indep_val
+            for dependent_var, dependent_val in zip(dependent_vars, result):
+                row[dependent_var] = dependent_val
             writer.writerow(row)
 
 
 # Command-line arguments
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-e', '--env', type=str, default='room',
-                        help='Environment to run: one of [vases, boxes, room]')
-    parser.add_argument('-s', '--problem_spec', type=str, default='simple',
-                        help='The name of the problem specification to solve.')
-    parser.add_argument('-a', '--algorithm', type=str, default='pass',
-                        help='Frame condition inference algorithm.')
-    parser.add_argument('-r', '--rl_algorithm', type=str, default='vi',
-                        help='Algorithm to run on the inferred reward')
-    parser.add_argument('-i', '--prior', type=str, default='none',
-                        help='Prior to use for occupancy measure')
-    parser.add_argument('-H', '--horizon', type=str, default='22',
-                        help='Number of timesteps we assume the human has been acting')
-    parser.add_argument('-t', '--temperature', type=str, default='1.0',
-                        help='Boltzmann rationality constant for the human')
-    parser.add_argument('-l', '--learning_rate', type=str, default='0.1',
-                        help='Learning rate for gradient descent')
-    parser.add_argument('-p', '--epochs', type=str, default='200',
-                        help='Number of gradient descent steps to take.')
-    parser.add_argument('-u', '--uniform_prior', type=str, default='False',
-                        help='Whether to use a uniform prior over initial states, or to know the initial state. Either true or false.')
-    parser.add_argument('-d', '--dependent_vars', type=str, default='result',
-                        help='Dependent variables to measure and report')
+    for name, long_name, default, _, help_str in PARAMETERS:
+        parser.add_argument(name, long_name, type=str, default=default, help=help_str)
+
+    # Parameters that shouldn't be included in the filename.
     parser.add_argument('-o', '--output_folder', type=str, default='results',
                         help='Output folder')
-    parser.add_argument('-n', '--n_samples', type=str, default='1000',
-                        help='number of samples to generate with MCMC')
-    parser.add_argument('-b', '--mcmc_burn_in', type=str, default='400',
-                        help='number of samples to ignore at the start')
     return parser.parse_args(args)
 
 
 def setup_experiment(args):
     indep_vars_dict, control_vars_dict = {}, {}
-    def add_to_dict(var, vals):
+
+    for _, var, _, fn, _ in PARAMETERS:
+        var = var[2:]
+        if var == 'dependent_vars': continue
+        if fn is None: fn = lambda x: x
+
+        vals = [fn(x) for x in args.__dict__[var].split(',')]
         if len(vals) > 1:
             indep_vars_dict[var] = vals
         else:
             control_vars_dict[var] = vals[0]
 
-    add_to_dict('env_name', args.env.split(','))
-    add_to_dict('problem_name', args.problem_spec.split(','))
-    add_to_dict('algorithm', args.algorithm.split(','))
-    add_to_dict('rl_algorithm', args.rl_algorithm.split(','))
-    add_to_dict('prior', args.prior.split(','))
-    add_to_dict('horizon', [int(h) for h in args.horizon.split(',')])
-    add_to_dict('temp', [float(t) for t in args.temperature.split(',')])
-    add_to_dict('learning_rate', [float(lr) for lr in args.learning_rate.split(',')])
-    add_to_dict('epochs', [int(epochs) for epochs in args.epochs.split(',')])
-    add_to_dict('uniform', [u != "False" for u in args.uniform_prior.split(',')])
-    add_to_dict('n_samples', [int(n_samples) for n_samples in args.n_samples.split(',')])
-    add_to_dict('mcmc_burn_in', [int(mcmc_burn_in) for mcmc_burn_in in args.mcmc_burn_in.split(',')])
     return indep_vars_dict, control_vars_dict, args.dependent_vars.split(',')
 
 
 def main():
+    if sys.platform == "win32":
+        import colorama; colorama.init()
+
     args = parse_args()
-    colorama_init()
     indep_vars_dict, control_vars_dict, dependent_vars = setup_experiment(args)
-    print(indep_vars_dict, control_vars_dict, dependent_vars)
+    # print(indep_vars_dict, control_vars_dict, dependent_vars)
     # For now, restrict to zero or one independent variables, but it
     # could be generalized to two variables
     if len(indep_vars_dict) == 0:
-        results = experiment_wrapper(**control_vars_dict)
+        results = experiment_wrapper(measures=dependent_vars, **control_vars_dict)
         print(results)
     elif len(indep_vars_dict) == 1:
         indep_var = next(iter(indep_vars_dict.keys()))

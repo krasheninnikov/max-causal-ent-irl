@@ -29,14 +29,19 @@ def policy_walk_last_state_prob(env, s_current, p_0, h, temp, n_samples,
     log_p = np.log(.5)
     samples = []
 
-    r = r_prior.rvs()
+    if r_prior is None:
+        r_vec = .01*np.random.randn(env.num_features)
+    else:
+        r = r_prior.rvs()
     V, Q, pi = vi_boltzmann_deterministic(env, 1, env.f_matrix @ r, h, temp)
 
     while True:
         r_prime = np.random.normal(r, step_size)
         V, Q, pi = vi_boltzmann_deterministic(env, 1, env.f_matrix @ r_prime, h, temp)
 
-        log_p_1 = log_last_step_om(s_current, env, pi, p_0, h) + np.sum(r_prior.logpdf(r_prime))
+        log_p_1 = log_last_step_om(s_current, env, pi, p_0, h)
+        if r_prior is not None:
+            log_p_1 += np.sum(r_prior.logpdf(r_prime))
 
         # acceptance prob
         a = np.exp(log_p_1-log_p)
