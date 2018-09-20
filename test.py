@@ -147,7 +147,7 @@ def experiment_wrapper(env_name='vases',
         r_samples = policy_walk_last_state_prob(
             env, s_current, p_0, horizon, temperature, n_samples, step_size,
             r_prior, gamma, adaptive_step_size=True)
-        r_inferred = np.mean(r_samples[mcmc_burn_in:,:], axis=0)
+        r_inferred = np.mean(r_samples[mcmc_burn_in::], axis=0)
     elif inference_algorithm in ["deviation", "reachability", "pass"]:
         r_inferred = None
     else:
