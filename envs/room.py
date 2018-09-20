@@ -55,10 +55,7 @@ class RoomEnv(DeterministicEnv):
         self.spec = None  # TODO: Remove this line? test.py might use it?
 
         self.nA = 4
-
         self.num_features = len(self.s_to_f(self.init_state))
-        # TODO: Need to figure out what this is doing
-        self.r_vec = np.array([0,1,0,1], dtype='float32')
 
         self.reset()
 

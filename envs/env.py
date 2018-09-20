@@ -35,7 +35,7 @@ class DeterministicEnv(object):
         return np.array(obs, dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
 
 
-    def step(self, action):
+    def step(self, action, r_vec=None):
         '''
         given an action, takes a step from self.s, updates self.s and returns:
         - the observation (features of the next state)
@@ -47,11 +47,10 @@ class DeterministicEnv(object):
         self.timestep+=1
 
         obs = self.s_to_f(self.s)
+        reward = 0 if r_vec is None else np.array(obs.T @ r_vec)
         done = False
-        if self.timestep>500: done=True
-
         info = defaultdict(lambda : '')
-        return np.array(obs, dtype='float32'), np.array(obs.T @ self.r_vec), np.array(done, dtype='bool'), info
+        return np.array(obs, dtype='float32'), reward, np.array(done, dtype='bool'), info
 
 
     def _compute_transitions(self, states_iter, actions_iter):

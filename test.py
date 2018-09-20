@@ -23,12 +23,12 @@ from relative_reachability import relative_reachability_penalty
 from value_iter_and_policy import vi_boltzmann, vi_boltzmann_deterministic
 
 
-def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None,
-               weight=1, penalize_deviation=False, relative_reachability=False,
-               print_level=1):
+def forward_rl(env, r_planning, r_true, h=40, temp=.1, steps_printed=15,
+               current_s=None, weight=1, penalize_deviation=False,
+               relative_reachability=False, print_level=1):
     '''Given an env and R, runs soft VI for h steps and rolls out the resulting policy'''
 
-    r_s = env.f_matrix @ r
+    r_s = env.f_matrix @ r_planning
     if penalize_deviation:
         r_s += weight * np.sqrt(np.sum((env.f_matrix - env.s_to_f(env.s).T) ** 2, axis=1))
     if relative_reachability:
@@ -46,18 +46,18 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None,
         env.print_state(env.s, env.spec); print()
 
     # steps = [4, 1, 4, 1]
+    total_reward = 0
     for i in range(steps_printed):
         a = np.random.choice(env.nA, p=policy[env.get_num_from_state(env.s),:])
         # a = steps[i]
-        env.step(a)
-        obs = env.s_to_f(env.s)
+        obs, reward, done, info = env.step(a, r_vec=r_true)
+        total_reward += reward
 
         if print_level >= 1:
             env.print_state(env.s, env.spec)
-            # print(env.get_num_from_state(env.s))
-            # print(r_r[env.get_num_from_state(env.s)])
-            print(obs, obs.T @ env.r_vec)
             print()
+
+    return total_reward
 
 PROBLEMS = {
     'room': ROOM_PROBLEMS,
@@ -71,17 +71,17 @@ ENV_CLASSES = {
     'boxes': BoxesEnv
 }
 
-def get_env_and_s_current(env_name, problem_name):
+def get_problem_parameters(env_name, problem_name):
     if env_name not in ENV_CLASSES:
         raise ValueError('Environment {} is not one of {}'.format(env_name, list(ENV_CLASSES.keys())))
     if problem_name not in PROBLEMS[env_name]:
         raise ValueError('Problem spec {} is not one of {}'.format(problem_name, list(PROBLEMS[env_name].keys())))
 
-    spec, cur_state = PROBLEMS[env_name][problem_name]
+    spec, cur_state, r_task, r_true = PROBLEMS[env_name][problem_name]
     env = ENV_CLASSES[env_name](spec)
     s_current = np.zeros(env.nS)
     s_current[env.get_num_from_state(cur_state)] = 1
-    return env, s_current
+    return env, s_current, r_task, r_true
 
 
 def get_r_prior(prior, reward_center):
@@ -115,13 +115,11 @@ def experiment_wrapper(env_name='vases',
     assert inference_algorithm in ['mceirl', 'sampling', 'deviation', 'reachability', 'pass']
     assert combination_algorithm in ['add_rewards', 'use_prior']
     assert prior in ['gaussian', 'laplace', 'uniform']
-    assert all((measure in ['final_reward'] for measure in measures))
+    assert all((measure in ['true_reward', 'final_reward'] for measure in measures))
     if combination_algorithm == 'use_prior':
         assert inference_algorithm in ['mceirl', 'sampling']
 
-    # TODO: have the task reward and true reward in the problem spec, and
-    # evaluate according to the true reward
-    env, s_current = get_env_and_s_current(env_name, problem_spec)
+    env, s_current, r_task, r_true = get_problem_parameters(env_name, problem_spec)
 
     if print_level >= 1:
         print('Initial state:')
@@ -134,7 +132,6 @@ def experiment_wrapper(env_name='vases',
     else:
         p_0=np.ones(env.nS) / env.nS
 
-    r_task = env.r_vec
     deviation = inference_algorithm == "deviation"
     reachability = inference_algorithm == "reachability"
     reward_center = r_task if combination_algorithm == "use_prior" else np.zeros(env.num_features)
@@ -148,7 +145,7 @@ def experiment_wrapper(env_name='vases',
         r_samples = policy_walk_last_state_prob(
             env, s_current, p_0, horizon, temperature, n_samples, step_size,
             r_prior, adaptive_step_size=True)
-        r_inferred = np.mean(r_samples[mcmc_burn_in::], axis=0)
+        r_inferred = np.mean(r_samples[mcmc_burn_in:,:], axis=0)
     elif inference_algorithm in ["deviation", "reachability", "pass"]:
         r_inferred = None
     else:
@@ -163,18 +160,20 @@ def experiment_wrapper(env_name='vases',
         r_final = r_task
         if r_inferred is not None:
             r_final = r_task + inferred_weight * r_inferred
-        forward_rl(env, r_final, current_s=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
+        true_reward_obtained = forward_rl(env, r_final, r_true, current_s=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
     elif combination_algorithm == "use_prior":
         assert r_inferred is not None
         assert (not deviation) and (not reachability)
         r_final = r_inferred
-        forward_rl(env, r_final, current_s=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
+        true_reward_obtained = forward_rl(env, r_final, r_true, current_s=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
     else:
         raise ValueError('Unknown combination algorithm: {}'.format(combination_algorithm))
 
     def get_measure(measure):
         if measure == 'final_reward':
             return r_final
+        elif measure == 'true_reward':
+            return true_reward_obtained
         else:
             raise ValueError('Unknown measure {}'.format(measure))
 

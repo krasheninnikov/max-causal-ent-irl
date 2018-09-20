@@ -13,7 +13,7 @@ class RoomSpec(object):
 
 
 # In the diagrams below, G is a goal location, V is a vase, C is a carpet, A is
-# the agent.
+# the agent. Each tuple is of the form (spec, current state, task R, true R).
 
 ROOM_PROBLEMS = {
     # -------
@@ -21,9 +21,13 @@ ROOM_PROBLEMS = {
     # |GCVC |
     # |  A  |
     # -------
-    'simple': (RoomSpec(3, 5,
-                        RoomState((2, 2), {(2, 1): True}),
-                        [(1, 1), (3, 1)],
-                        [(0, 1), (2, 0)]),
-               RoomState((2, 0), {(2, 1): True}))
+    'simple': (
+        RoomSpec(3, 5,
+                 RoomState((2, 2), {(2, 1): True}),
+                 [(1, 1), (3, 1)],
+                 [(0, 1), (2, 0)]),
+        RoomState((2, 0), {(2, 1): True}),
+        np.array([0, 0, 1, 0]),
+        np.array([-1, 0, 1, 0])
+    )
 }

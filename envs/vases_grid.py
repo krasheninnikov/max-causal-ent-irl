@@ -46,9 +46,6 @@ class VasesGrid(DeterministicEnv):
         self.f_include_masks = f_include_masks
         f_len = len(self.s_to_f(self.init_state))
         self.num_features = f_len
-        self.r_vec = np.concatenate([np.array([0,0,1,0,0,0], dtype='float32'),
-                                     np.zeros(f_len-6, dtype='float32')])
-
         self.reset()
 
         if compute_transitions:

@@ -145,10 +145,15 @@ BoxesEnvNoWallState7x9 = BoxesEnvState(
               [0, 0, 0, 0, 0, 0, 0]], dtype='bool')
 )
 
-
+BOXES_true_reward = np.array([1, -1, -1, 1])
+BOXES_task_reward = np.array([0, 0, 0, 1])
 BOXES_PROBLEMS = {
-    "wall:nowall": (BoxesEnvSpec7x9(True), BoxesEnvNoWallState7x9),
-    "nowall:nowall": (BoxesEnvSpec7x9(False), BoxesEnvNoWallState7x9),
-    "wall:nowall_small": (BoxesEnvSpec6x7(True), BoxesEnvNoWallState6x7),
-    "nowall:nowall_small": (BoxesEnvSpec6x7(False), BoxesEnvNoWallState6x7),
+    "wall:nowall": (BoxesEnvSpec7x9(True), BoxesEnvNoWallState7x9,
+                    BOXES_task_reward, BOXES_true_reward),
+    "nowall:nowall": (BoxesEnvSpec7x9(False), BoxesEnvNoWallState7x9,
+                      BOXES_task_reward, BOXES_true_reward),
+    "wall:nowall_small": (BoxesEnvSpec6x7(True), BoxesEnvNoWallState6x7,
+                          BOXES_task_reward, BOXES_true_reward),
+    "nowall:nowall_small": (BoxesEnvSpec6x7(False), BoxesEnvNoWallState6x7,
+                            BOXES_task_reward, BOXES_true_reward)
 }

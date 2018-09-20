@@ -38,10 +38,6 @@ class BoxesEnv(DeterministicEnv):
         self.f_include_masks = f_include_masks
         f_len = len(self.s_to_f(self.init_state))
         self.num_features = f_len
-
-        self.r_vec = np.concatenate([np.array([0,0,0,1], dtype='float32'),
-                                     np.zeros(f_len-self.nF, dtype='float32')])
-
         self.reset()
 
         if compute_transitions:
@@ -90,7 +86,7 @@ class BoxesEnv(DeterministicEnv):
     def s_to_f(self, s, include_masks=None):
         '''
         returns features of the state:
-        - Number of boxes adjacent to zero walls
+        - Number of boxes adjacent to zero or more walls
         - Number of boxes adjacent to one or more walls
         - Number of boxes adjacent to two or more walls
         - Whether agent is on the goal state or not

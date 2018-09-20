@@ -204,26 +204,26 @@ class VasesEnvSpec3x3(object):
         table_mask shows which surfaces in d_mask are tables; the rest are desks.
         '''
         self.d_mask = np.array([[1, 0, 1],
-                              [0, 0, 0],
-                              [1, 0, 1]], dtype='bool')
+                                [0, 0, 0],
+                                [1, 0, 1]], dtype='bool')
         self.table_mask = np.array([[0, 0, 1],
-                                      [0, 0, 0],
-                                      [0, 0, 0]], dtype='bool')
+                                    [0, 0, 0],
+                                    [0, 0, 1]], dtype='bool')
         self.bv_mask = np.array([[0, 1, 0],
                                  [1, 1, 1],
                                  [0, 1, 0]], dtype='bool')
         self.agent_mask = np.array([[[0, 1, 0],
-                                    [1, 1, 1],
-                                    [0, 1, 0]],
-                                   [[0, 1, 0],
-                                    [1, 1, 1],
-                                    [0, 1, 0]],
-                                   [[0, 1, 0],
-                                    [1, 1, 1],
-                                    [0, 1, 0]],
-                                   [[0, 1, 0],
-                                    [1, 1, 1],
-                                    [0, 1, 0]]], dtype='bool')
+                                     [1, 1, 1],
+                                     [0, 1, 0]],
+                                    [[0, 1, 0],
+                                     [1, 1, 1],
+                                     [0, 1, 0]],
+                                    [[0, 1, 0],
+                                     [1, 1, 1],
+                                     [0, 1, 0]],
+                                    [[0, 1, 0],
+                                     [1, 1, 1],
+                                     [0, 1, 0]]], dtype='bool')
 
         self.t_mask = np.array([[1, 1, 1],
                                 [1, 1, 1],
@@ -231,13 +231,13 @@ class VasesEnvSpec3x3(object):
 
         self.n_v = 2
         self.n_t = 1
-        self.init_state = VasesEnvState3x3
+        self.init_state = VasesEnvInitialState3x3
 
 
-VasesEnvState3x3 = VasesEnvState(
-    np.array([[1, 0, 0],
+VasesEnvInitialState3x3 = VasesEnvState(
+    np.array([[1, 0, 1],
               [0, 0, 0],
-              [1, 0, 0]], dtype='bool'),
+              [0, 0, 0]], dtype='bool'),
     np.array([[0, 0, 0],
               [0, 0, 0],
               [0, 0, 0]], dtype='bool'),
@@ -253,14 +253,44 @@ VasesEnvState3x3 = VasesEnvState(
               [[0, 0, 0],
                [0, 0, 0],
                [0, 0, 0]]], dtype='bool'),
-    np.array([[1, 0, 0],
-              [0, 0, 0],
+    np.array([[0, 0, 0],
+              [1, 0, 0],
               [0, 0, 0]], dtype='bool'),
     np.array([0, 0], dtype='bool')
 )
 
 
+VasesEnvFinalState3x3 = VasesEnvState(
+    np.array([[1, 0, 0],
+              [0, 0, 0],
+              [1, 0, 0]], dtype='bool'),
+    np.array([[0, 0, 0],
+              [0, 0, 0],
+              [0, 0, 0]], dtype='bool'),
+    np.array([[[0, 0, 0],
+               [0, 0, 0],
+               [0, 0, 0]],
+              [[0, 0, 0],
+               [1, 0, 0],
+               [0, 0, 0]],
+              [[0, 0, 0],
+               [0, 0, 0],
+               [0, 0, 0]],
+              [[0, 0, 0],
+               [0, 0, 0],
+               [0, 0, 0]]], dtype='bool'),
+    np.array([[0, 0, 0],
+              [0, 0, 0],
+              [1, 0, 0]], dtype='bool'),
+    np.array([0, 0], dtype='bool')
+)
+
+
 VASES_PROBLEMS = {
-    # TODO: This is wrong, it sets the current state equal to the initial state
-    'default': (VasesEnvSpec2x3V2D3(), VasesEnvState2x3V2D3)
+    'default': (
+        VasesEnvSpec3x3(),
+        VasesEnvFinalState3x3,
+        np.array([0, 0, 1, 0, 0, 0]),
+        np.array([-1, 0, 1, 0, 0, 0])
+    )
 }
