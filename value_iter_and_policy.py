@@ -237,7 +237,7 @@ def mellowmax(x, t=1):
 
 
 def vi_boltzmann_deterministic(mdp, gamma, r, horizon=None,  temperature=1,
-                                threshold=1e-16, use_mellowmax=False):
+                                threshold=1e-10, use_mellowmax=False, V_init=None):
         '''
         Finds the optimal state and state-action value functions via value
         iteration with the "soft" max-ent Bellman backup:
@@ -279,56 +279,46 @@ def vi_boltzmann_deterministic(mdp, gamma, r, horizon=None,  temperature=1,
             Array of shape (mdp.nS, mdp.nA), each value p[s,a] is the probability
             of taking action a in state s.
         '''
+        # Functions for computing the policy
+        expt = lambda x: np.exp(x/temperature)
+        tlog = lambda x: temperature * np.log(x)
+
         #Value iteration
-        V = np.copy(r)
+        if V_init is None:
+            V = np.copy(r)
+        else:
+            V = np.copy(V_init)
+        policy = np.zeros((mdp.nS, mdp.nA))
         t = 0
         diff = float("inf")
         while diff > threshold:
             V_prev = np.copy(V)
 
             Q = np.tile(r, (mdp.nA, 1)).T
+            # TODO turn this into a one-liner
             for a in range(mdp.nA):
                 Q[:, a] += gamma * V[mdp.deterministic_T[:, a]]
 
-            # TODO turn the above into a one-liner; below is the wrong way
-            #Q += gamma * (np.tile(V, (mdp.nA, 1)).T)[mdp.deterministic_T]
+            # ∀ s: V_s = temperature * log(\sum_a exp(Q_sa/temperature))
+            V = softmax(Q, temperature)
 
-################################################################################
-
-            if use_mellowmax:
-                # ∀ s: V_s = temperature * log(\sum_a exp(Q_{sa}/temperature) / nA)
-                V = mellowmax(Q, temperature)
-            else:
-                # ∀ s: V_s = temperature * log(\sum_a exp(Q_sa/temperature))
-                V = softmax(Q, temperature)
-
-            diff = np.amax(abs(V_prev - V))
+            # ∀ s,a: policy_{s,a} = exp((Q_{s,a} - V_s)/t)
+            policy_prime = expt(Q - V.reshape((-1, 1)))
+            diff = np.amax(abs(policy - policy_prime))
+            policy = np.copy(policy_prime)
 
             t+=1
-            if t<horizon and gamma==1 and not use_mellowmax:
+            if t<horizon and gamma==1:
                 # When \gamma=1, the backup operator is equivariant under adding
                 # a constant to all entries of V, so we can translate min(V)
                 # to be 0 at each step of the softmax value iteration without
                 # changing the policy it converges to, and this fixes the problem
                 # where log(nA) keep getting added at each iteration.
                 V = V - np.amin(V)
-            if horizon is not None:
+            if horizon is not None and gamma==1:
                 if t==horizon: break
 
-        V = V.reshape((-1, 1))
-
-        # Compute policy
-        expt = lambda x: np.exp(x/temperature)
-        tlog = lambda x: temperature * np.log(x)
-
-        if use_mellowmax:
-            # ∀ s,a: policy_{s,a} = exp((Q_{s,a} - V_s - t*log(nA))/t)
-            policy = expt(Q - V - tlog(Q.shape[1]))
-        else:
-            # ∀ s,a: policy_{s,a} = exp((Q_{s,a} - V_s)/t)
-            policy = expt(Q - V)
-
-        return V, Q, policy
+        return V.reshape((-1, 1)), Q, policy
 
 
 

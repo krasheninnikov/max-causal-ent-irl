@@ -16,7 +16,7 @@ def log_last_step_om(s_current, env, policy, p_0, horizon):
 
 
 def policy_walk_last_state_prob(env, s_current, p_0, h, temp, n_samples,
-                    step_size, r_prior, adaptive_step_size=True, verbose=True):
+                    step_size, r_prior, gamma=1, adaptive_step_size=True, verbose=True):
     '''
     Algorithm similar to BIRL that uses the last-step OM of a Boltzmann rational
     policy instead of the BIRL likelihood. Samples the reward from the posterior
@@ -33,15 +33,15 @@ def policy_walk_last_state_prob(env, s_current, p_0, h, temp, n_samples,
     else:
         r = r_prior.rvs()
 
-    #log_p = np.log(.5)
-    V, Q, pi = vi_boltzmann_deterministic(env, 1, env.f_matrix @ r, h, temp)
+    # probability of the initial reward
+    V, Q, pi = vi_boltzmann_deterministic(env, gamma, env.f_matrix @ r, h, temp)
     log_p = log_last_step_om(s_current, env, pi, p_0, h)
     if r_prior is not None:
         log_p += np.sum(r_prior.logpdf(r))
 
     while True:
         r_prime = np.random.normal(r, step_size)
-        V, Q, pi = vi_boltzmann_deterministic(env, 1, env.f_matrix @ r_prime, h, temp)
+        V, Q, pi = vi_boltzmann_deterministic(env, gamma, env.f_matrix @ r_prime, h, temp)
 
         log_p_1 = log_last_step_om(s_current, env, pi, p_0, h)
         if r_prior is not None:
@@ -68,7 +68,7 @@ def policy_walk_last_state_prob(env, s_current, p_0, h, temp, n_samples,
             a_running_mean = np.convolve(np.array(a_list), np.ones((5,))/5, mode='valid')
             if a_running_mean[-1]<10e-1 and step_size>10e-6:
                 step_size = .98*step_size
-            if a_running_mean[-1]>.5 and step_size<10:
+            if a_running_mean[-1]>.5:
                 step_size = 1.02*step_size
 
 
