@@ -23,7 +23,7 @@ from relative_reachability import relative_reachability_penalty
 from value_iter_and_policy import vi_boltzmann, vi_boltzmann_deterministic
 
 
-def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None,
+def forward_rl(env, r, h=40, temp=.1, last_steps_printed=3, current_s=None,
                weight=1, penalize_deviation=False, relative_reachability=False,
                print_level=1):
     '''Given an env and R, runs soft VI for h steps and rolls out the resulting policy'''
@@ -42,17 +42,18 @@ def forward_rl(env, r, h=40, temp=.1, steps_printed=15, current_s=None,
         env.s = env.get_state_from_num(np.where(current_s)[0][0])
 
     if print_level >= 1:
-        print("Executing policy:")
+        print("Executing the policy from state:")
         env.print_state(env.s, env.spec); print()
 
     # steps = [4, 1, 4, 1]
-    for i in range(steps_printed):
+    print('Last {} of the {} rolled out steps:'.format(last_steps_printed, h))
+    for i in range(h):
         a = np.random.choice(env.nA, p=policy[env.get_num_from_state(env.s),:])
         # a = steps[i]
         env.step(a)
         obs = env.s_to_f(env.s)
 
-        if print_level >= 1:
+        if print_level >= 1 and i>=(h-last_steps_printed):
             env.print_state(env.s, env.spec)
             # print(env.get_num_from_state(env.s))
             # print(r_r[env.get_num_from_state(env.s)])
