@@ -1,7 +1,6 @@
 import numpy as np
 from collections import defaultdict
 from copy import copy, deepcopy
-from gym import spaces
 from envs.env import DeterministicEnv
 from envs.utils import unique_perm, zeros_with_ones
 
@@ -43,14 +42,12 @@ class VasesGrid(DeterministicEnv):
         self.init_state = deepcopy(spec.init_state)
 
         self.nA = 5
-        self.action_space = spaces.Discrete(self.nA)
 
         self.f_include_masks = f_include_masks
         f_len = len(self.s_to_f(self.init_state))
         self.num_features = f_len
         self.r_vec = np.concatenate([np.array([0,0,1,0,0,0], dtype='float32'),
                                      np.zeros(f_len-6, dtype='float32')])
-        self.observation_space = spaces.Box(low=0, high=255, shape=self.r_vec.shape, dtype=np.float32)
 
         self.reset()
 

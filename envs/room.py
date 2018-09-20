@@ -1,7 +1,7 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from collections import defaultdict
 from copy import copy, deepcopy
-from gym import spaces
 
 from envs.env import DeterministicEnv
 from envs.utils import unique_perm, Direction, all_boolean_assignments
@@ -55,12 +55,10 @@ class RoomEnv(DeterministicEnv):
         self.spec = None  # TODO: Remove this line? test.py might use it?
 
         self.nA = 4
-        self.action_space = spaces.Discrete(self.nA)
 
         self.num_features = len(self.s_to_f(self.init_state))
         # TODO: Need to figure out what this is doing
-        self.r_vec = np.array([0,1,0,1,0], dtype='float32')
-        self.observation_space = spaces.Box(low=0, high=255, shape=self.r_vec.shape, dtype=np.float32)
+        self.r_vec = np.array([0,1,0,1], dtype='float32')
 
         self.reset()
 
@@ -183,3 +181,74 @@ class RoomEnv(DeterministicEnv):
                 elif char_num==6:
                     print('\033[91m█'+black_color, end='')
             print('')
+
+
+    def get_state_rendering_representation(self, state):
+        """Returns a grid, where grid[y][x] is a (possibly empty) list of
+        objects that must be drawn at location (x, y). The objects must be drawn
+        in the order that they are in the list.
+        """
+        grid = [[[] for _ in range(self.width)] for _ in range(self.height)]
+        for x, y in self.carpet_locations:
+            grid[y][x].append('rug')
+        for x, y in self.feature_locations:
+            grid[y][x].append('door')
+        for (x, y), status in state.vase_states.items():
+            grid[y][x].append('vase' if status else 'pieces')
+        x, y = state.agent_pos
+        grid[y][x].append('human')
+        return grid
+
+    def generate_and_plot_trajectory(self, actions, fig, ax):
+        dir_to_mark = {
+            Direction.NORTH: '^',
+            Direction.SOUTH: 'v',
+            Direction.EAST: '>',
+            Direction.WEST: '<'
+        }
+        get_direction = Direction.get_direction_from_number
+        action_to_mark = [dir_to_mark[get_direction(i)] for i in range(4)]
+
+        agent_positions = [self.s.agent_pos]
+        for action in actions:
+            self.step(action)
+            agent_positions.append(self.s.agent_pos)
+
+        grid = self.get_state_rendering_representation(self.s)
+        start_x, start_y = agent_positions[0]
+        grid[start_y][start_x].append('human')
+        for (x, y), action in zip(agent_positions[:-1], actions):
+            grid[y][x].append(action_to_mark[action])
+
+        self.render_grid(grid, fig, ax)
+
+
+    def render_grid(self, grid, fig, ax):
+        h, w = self.height, self.width
+        for y in range(h):
+            for x in range(w):
+                for item in grid[y][x]:
+                    # In our grids, y = 0 is at the top, but in matplotlib, it
+                    # is at the bottom.
+                    self.plot_item((x, h - y - 1), item, fig, ax)
+
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    def plot_item(self, location, item, fig, ax):
+        if len(item) == 1:
+            self.plot_pos(location, ax, color='black', marker=item)
+        else:
+            x, y = map(float, location)
+            h, w = self.height, self.width
+            im = plt.imread('envs/{}.png'.format(item))
+            newax = fig.add_axes([x/w, y/h, 1/w, 1/h], anchor='NE')
+            newax.imshow(im)
+            newax.axis('off')
+
+    def plot_pos(self, location, ax, color=None, marker='*'):
+        """Plots a small dot on the start location"""
+        col, row = location
+        if color is None:
+            color = 'r'
+        ax.scatter([col], [row], color=color, s=30, marker=marker)

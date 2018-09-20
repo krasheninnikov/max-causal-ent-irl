@@ -1,7 +1,6 @@
 import numpy as np
 from collections import defaultdict
 from copy import copy, deepcopy
-from gym import spaces
 from envs.env import DeterministicEnv
 from envs.utils import unique_perm, zeros_with_ones
 
@@ -34,7 +33,6 @@ class BoxesEnv(DeterministicEnv):
         self.init_state = deepcopy(spec.init_state)
 
         self.nA = 4
-        self.action_space = spaces.Discrete(self.nA)
 
         self.nF = 4
         self.f_include_masks = f_include_masks
@@ -43,7 +41,6 @@ class BoxesEnv(DeterministicEnv):
 
         self.r_vec = np.concatenate([np.array([0,0,0,1], dtype='float32'),
                                      np.zeros(f_len-self.nF, dtype='float32')])
-        self.observation_space = spaces.Box(low=0, high=255, shape=self.r_vec.shape, dtype=np.float32)
 
         self.reset()
 
