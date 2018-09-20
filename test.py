@@ -110,6 +110,7 @@ def experiment_wrapper(env_name='vases',
                        n_samples=1000,
                        mcmc_burn_in=400,
                        step_size=.01,
+                       gamma=1,
                        print_level=1):
     # Check the parameters so that we fail fast
     assert inference_algorithm in ['mceirl', 'sampling', 'deviation', 'reachability', 'pass']
@@ -147,7 +148,7 @@ def experiment_wrapper(env_name='vases',
     elif inference_algorithm == "sampling":
         r_samples = policy_walk_last_state_prob(
             env, s_current, p_0, horizon, temperature, n_samples, step_size,
-            r_prior, adaptive_step_size=True)
+            r_prior, gamma, adaptive_step_size=True)
         r_inferred = np.mean(r_samples[mcmc_burn_in::], axis=0)
     elif inference_algorithm in ["deviation", "reachability", "pass"]:
         r_inferred = None
@@ -163,12 +164,12 @@ def experiment_wrapper(env_name='vases',
         r_final = r_task
         if r_inferred is not None:
             r_final = r_task + inferred_weight * r_inferred
-        forward_rl(env, r_final, current_s=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
+        forward_rl(env, r_final, horizon, current_s=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
     elif combination_algorithm == "use_prior":
         assert r_inferred is not None
         assert (not deviation) and (not reachability)
         r_final = r_inferred
-        forward_rl(env, r_final, current_s=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
+        forward_rl(env, r_final, horizon, current_s=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
     else:
         raise ValueError('Unknown combination algorithm: {}'.format(combination_algorithm))
 
@@ -215,6 +216,8 @@ PARAMETERS = [
      'Number of samples to ignore at the start'),
     ('-z', '--step_size', '0.01', float,
      'Step size for computing neighbor reward functions. Only has an effect if inference_algorithm is sampling.'),
+    ('-g', '--gamma', '1.0', float,
+     'Discounting rate for infinite horizon discounted algorithms.'),
 ]
 
 # Writing output for experiments
