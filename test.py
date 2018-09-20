@@ -147,7 +147,7 @@ def experiment_wrapper(env_name='vases',
     elif inference_algorithm == "sampling":
         r_samples = policy_walk_last_state_prob(
             env, s_current, p_0, horizon, temperature, n_samples, step_size,
-            r_prior, adaptive_step_size=False)
+            r_prior, adaptive_step_size=True)
         r_inferred = np.mean(r_samples[mcmc_burn_in::], axis=0)
     elif inference_algorithm in ["deviation", "reachability", "pass"]:
         r_inferred = None
@@ -273,6 +273,7 @@ def main():
         import colorama; colorama.init()
 
     args = parse_args()
+    print(args)
     indep_vars_dict, control_vars_dict, dependent_vars = setup_experiment(args)
     # print(indep_vars_dict, control_vars_dict, dependent_vars)
     # For now, restrict to zero or one independent variables, but it

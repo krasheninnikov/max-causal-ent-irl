@@ -26,14 +26,18 @@ def policy_walk_last_state_prob(env, s_current, p_0, h, temp, n_samples,
     times_accepted=0
     a_list = []
 
-    log_p = np.log(.5)
     samples = []
 
     if r_prior is None:
-        r_vec = .01*np.random.randn(env.num_features)
+        r = .01*np.random.randn(env.num_features)
     else:
         r = r_prior.rvs()
+
+    #log_p = np.log(.5)
     V, Q, pi = vi_boltzmann_deterministic(env, 1, env.f_matrix @ r, h, temp)
+    log_p = log_last_step_om(s_current, env, pi, p_0, h)
+    if r_prior is not None:
+        log_p += np.sum(r_prior.logpdf(r))
 
     while True:
         r_prime = np.random.normal(r, step_size)
@@ -61,10 +65,10 @@ def policy_walk_last_state_prob(env, s_current, p_0, h, temp, n_samples,
         # (turned off for now)
         if adaptive_step_size:
             a_list.append(a[0])
-            a_running_mean = np.convolve(np.array(a_list), np.ones((25,))/25, mode='valid')
-            if a_running_mean[-1]<10e-1:
+            a_running_mean = np.convolve(np.array(a_list), np.ones((5,))/5, mode='valid')
+            if a_running_mean[-1]<10e-1 and step_size>10e-6:
                 step_size = .98*step_size
-            if a_running_mean[-1]>.5:
+            if a_running_mean[-1]>.5 and step_size<10:
                 step_size = 1.02*step_size
 
 
