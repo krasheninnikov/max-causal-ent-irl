@@ -14,6 +14,9 @@ from envs.side_effects_spec import BOXES_PROBLEMS
 from envs.room import RoomEnv, RoomState
 from envs.room_spec import ROOM_PROBLEMS
 
+from envs.apples import ApplesEnv, ApplesState
+from envs.apples_spec import APPLES_PROBLEMS
+
 from envs.utils import unique_perm, zeros_with_ones, printoptions
 
 from sampling_one_s_mceirl import policy_walk_last_state_prob
@@ -63,12 +66,14 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
 PROBLEMS = {
     'room': ROOM_PROBLEMS,
     'vases': VASES_PROBLEMS,
+    'apples': APPLES_PROBLEMS,
     'boxes': BOXES_PROBLEMS
 }
 
 ENV_CLASSES = {
     'room': RoomEnv,
     'vases': VasesGrid,
+    'apples': ApplesEnv,
     'boxes': BoxesEnv
 }
 

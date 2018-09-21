@@ -21,7 +21,7 @@ ROOM_PROBLEMS = {
     # |GCVC |
     # |  A  |
     # -------
-    'simple': (
+    'default': (
         RoomSpec(3, 5,
                  RoomState((2, 2), {(2, 1): True}),
                  [(1, 1), (3, 1)],

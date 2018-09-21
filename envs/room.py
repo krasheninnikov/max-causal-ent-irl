@@ -1,10 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from collections import defaultdict
 from copy import copy, deepcopy
+from itertools import product
 
 from envs.env import DeterministicEnv
-from envs.utils import unique_perm, Direction, all_boolean_assignments
+from envs.utils import unique_perm, Direction
 
 
 class RoomState(object):
@@ -26,7 +26,9 @@ class RoomState(object):
             self.vase_states == other.vase_states
 
     def __hash__(self):
-        return hash(self.agent_pos) + hash(tuple(self.vase_states.values()))
+        def get_vals(dictionary):
+            return tuple([dictionary[loc] for loc in sorted(dictionary.keys())])
+        return hash(self.agent_pos + get_vals(self.vase_states))
 
     def __str__(self):
         return '<Agent: {}, Vases: {}>'.format(self.agent_pos, self.vase_states)
@@ -70,7 +72,7 @@ class RoomEnv(DeterministicEnv):
         state_num = {}
 
         # Possible vase states
-        for vase_intact_bools in all_boolean_assignments(self.num_vases):
+        for vase_intact_bools in product([True, False], repeat=self.num_vases):
             vase_states = dict(zip(self.vase_locations, vase_intact_bools))
             # Possible agent positions
             for y in range(self.height):
@@ -106,8 +108,8 @@ class RoomEnv(DeterministicEnv):
         num_broken_vases = list(s.vase_states.values()).count(False)
         carpet_feature = int(s.agent_pos in self.carpet_locations)
         features = [int(s.agent_pos == fpos) for fpos in self.feature_locations]
-        features = np.array([num_broken_vases, carpet_feature] + features)
-        return features
+        features = [num_broken_vases, carpet_feature] + features
+        return np.array(features)
 
 
     def state_step(self, action, state=None):
@@ -126,18 +128,7 @@ class RoomEnv(DeterministicEnv):
 
 
     def print_state(self, state, spec=None):
-        '''
-        Renders the state. Each tile in the gridworld corresponds to a 2x2 cell in
-        the rendered state.
-        - Green tiles correspond to vases
-        - Red tiles correspond to broken vases
-        - Brown tiles correspond to tables
-        - Purple tiles correspond to tablecloths
-        - The arrow and its direction correspond to the agent and its rotation. The
-        background color of the arrow corresponds to the object the agent is
-        carrying. The agent is rendered in the same subcell as tables are since
-        the agent and the table are never in the same cell.
-        '''
+        '''Renders the state.'''
         h, w = self.height, self.width
         canvas = np.zeros(tuple([2*h-1, 3*w+1]), dtype='int8')
 
