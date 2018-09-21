@@ -3,11 +3,13 @@ from envs.apples import ApplesState
 from envs.utils import Direction
 
 class ApplesSpec(object):
-    def __init__(self, height, width, init_state):
+    def __init__(self, height, width, init_state, apple_regen_probability, bucket_capacity):
         """See ApplesEnv.__init__ in room.py for details."""
         self.height = height
         self.width = width
         self.init_state = init_state
+        self.apple_regen_probability = apple_regen_probability
+        self.bucket_capacity = bucket_capacity
 
 
 # In the diagrams below, T is a tree, B is a bucket, C is a carpet, A is the
@@ -30,12 +32,14 @@ APPLES_PROBLEMS = {
     'default': (
         ApplesSpec(3, 3,
                    ApplesState(agent_pos=(0, 0, 2),
-                               tree_states={(0, 0): 10, (2, 0): 10},
+                               tree_states={(0, 0): True, (2, 0): True},
                                bucket_states={(2, 2): 0},
-                               carrying_apple=False)),
+                               carrying_apple=False),
+                   apple_regen_probability = 0.1,
+                   bucket_capacity=10),
         ApplesState(agent_pos=(Direction.get_number_from_direction(Direction.SOUTH),
                                2, 1),
-                    tree_states={(0, 0): 8, (2, 0): 2},
+                    tree_states={(0, 0): True, (2, 0): False},
                     bucket_states={(2, 2): 2},
                     carrying_apple=False),
         np.array([0, 0, 0, 0, 0, 0, 0, 0, 0]),

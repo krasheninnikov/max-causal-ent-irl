@@ -116,12 +116,9 @@ class BoxesEnv(DeterministicEnv):
         return np.concatenate([f, f_mask])
 
 
-    def state_step(self, action, state=None):
+    def get_next_state(self, state, action):
         '''returns the next state given a state and an action'''
         action = int(action)
-
-        if state==None: state = self.s
-
         a_mask = self.spec.agent_mask
         b_mask = self.spec.box_mask
         wall_mask = self.spec.wall_mask
@@ -167,7 +164,7 @@ class BoxesEnv(DeterministicEnv):
         return BoxesEnvState(a_pos_new, b_pos_new)
 
 
-    def print_state(self, state, spec):
+    def print_state(self, state):
         '''
         - Grey blocks are walls
         - Green blocks are boxes

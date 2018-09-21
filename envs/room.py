@@ -54,7 +54,6 @@ class RoomEnv(DeterministicEnv):
         self.num_vases = len(self.vase_locations)
         self.carpet_locations = set(spec.carpet_locations)
         self.feature_locations = list(spec.feature_locations)
-        self.spec = None  # TODO: Remove this line? test.py might use it?
 
         self.nA = 4
         self.num_features = len(self.s_to_f(self.init_state))
@@ -112,10 +111,9 @@ class RoomEnv(DeterministicEnv):
         return np.array(features)
 
 
-    def state_step(self, action, state=None):
+    def get_next_state(self, state, action):
         '''returns the next state given a state and an action'''
         action = int(action)
-        if state==None: state = self.s
         new_x, new_y = Direction.move_in_direction_number(state.agent_pos, action)
         # New position is still in bounds:
         if not (0 <= new_x < self.width and 0 <= new_y < self.height):
@@ -127,7 +125,7 @@ class RoomEnv(DeterministicEnv):
         return RoomState(new_agent_pos, new_vase_states)
 
 
-    def print_state(self, state, spec=None):
+    def print_state(self, state):
         '''Renders the state.'''
         h, w = self.height, self.width
         canvas = np.zeros(tuple([2*h-1, 3*w+1]), dtype='int8')

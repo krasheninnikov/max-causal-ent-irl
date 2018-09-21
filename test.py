@@ -46,7 +46,7 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
 
     if print_level >= 1:
         print("Executing the policy from state:")
-        env.print_state(env.s, env.spec); print()
+        env.print_state(env.s); print()
 
     # steps = [4, 1, 4, 1]
     total_reward = 0
@@ -58,7 +58,7 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
         total_reward += reward
 
         if print_level >= 1 and i>=(h-last_steps_printed):
-            env.print_state(env.s, env.spec)
+            env.print_state(env.s)
             print()
 
     return total_reward
@@ -130,7 +130,7 @@ def experiment_wrapper(env_name='vases',
 
     if print_level >= 1:
         print('Initial state:')
-        env.print_state(env.init_state, env.spec)
+        env.print_state(env.init_state)
         print()
 
     if not uniform_prior:

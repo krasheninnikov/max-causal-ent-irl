@@ -2,22 +2,29 @@ import numpy as np
 from collections import defaultdict
 from copy import deepcopy
 
-class DeterministicEnv(object):
+class Env(object):
     def __init__(self):
         raise ValueError('Cannot instantiate abstract class Env')
 
-    def make_transition_matrices(self, states_iter, actions_iter, nS, nA):
+    def is_deterministic(self):
+        return False
+
+    def make_transition_matrices(self, states_iter, actions_iter):
         """
         states_iter: ITERATOR of states (i.e. can only be used once)
         actions_iter: ITERATOR of actions (i.e. can only be used once)
-        nS: Number of states
-        nA: Number of actions
-        nF: Number of features
         """
-        self._compute_transitions(states_iter, actions_iter)
-        self._make_stochastic_transition_matrix(nS, nA)
-        self._make_deterministic_transition_matrix(nS, nA)
-        self._make_deterministic_transition_transpose_matrix(nS, nA)
+        P = {}
+        actions = list(actions_iter)
+        for state in states_iter:
+            state_id = self.get_num_from_state(state)
+            P[state_id] = {}
+            for action in actions:
+                next_s = self.get_next_states(state, action)
+                next_s = [(p, self.get_num_from_state(s), r) for p, s, r in next_s]
+                P[state_id][action] = next_s
+
+        self.P = P
 
 
     def make_f_matrix(self, nS, num_features):
@@ -34,6 +41,12 @@ class DeterministicEnv(object):
         obs = self.s_to_f(self.s)
         return np.array(obs, dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
 
+    def state_step(self, action, state=None):
+        if state == None: state = self.s
+        next_states = self.get_next_states(state, action)
+        probabilities = [p for p, _ in next_states]
+        idx = np.random.choice(np.arange(len(next_states)), p=probabilities)
+        return next_states[idx][1]
 
     def step(self, action, r_vec=None):
         '''
@@ -53,24 +66,32 @@ class DeterministicEnv(object):
         return np.array(obs, dtype='float32'), reward, np.array(done, dtype='bool'), info
 
 
-    def _compute_transitions(self, states_iter, actions_iter):
+class DeterministicEnv(Env):
+    def __init__(self):
+        raise ValueError('Cannot instantiate abstract class DeterministicEnv')
+
+    def is_deterministic(self):
+        return True
+
+    def make_transition_matrices(self, states_iter, actions_iter, nS, nA):
         """
         states_iter: ITERATOR of states (i.e. can only be used once)
         actions_iter: ITERATOR of actions (i.e. can only be used once)
+        nS: Number of states
+        nA: Number of actions
         """
-        # Take every possible action from each of the possible states. Since the
-        # env is deterministic, this is sufficient to get transition probs
-        P = {}
-        actions = list(actions_iter)
-        for state in states_iter:
-            state_id = self.get_num_from_state(state)
-            P[state_id] = {}
-            for action in actions:
-                statep = self.state_step(action, state)
-                statep_id = self.get_num_from_state(statep)
-                P[state_id][action] = [(1, statep_id, 0)]
+        Env.make_transition_matrices(self, states_iter, actions_iter)
+        self._make_stochastic_transition_matrix(nS, nA)
+        self._make_deterministic_transition_matrix(nS, nA)
+        self._make_deterministic_transition_transpose_matrix(nS, nA)
 
-        self.P = P
+
+    def get_next_states(self, state, action):
+        return [(1, self.get_next_state(state, action), 0)]
+
+    def state_step(self, action, state=None):
+        if state == None: state = self.s
+        return self.get_next_state(state, action)
 
     def _make_stochastic_transition_matrix(self, nS, nA):
         '''Create self.T, a matrix with index S,A,S' -> P(S'|S,A)      '''

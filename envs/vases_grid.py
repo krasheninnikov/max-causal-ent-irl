@@ -161,11 +161,9 @@ class VasesGrid(DeterministicEnv):
         return np.concatenate([f, f_mask])
 
 
-    def state_step(self, action, state=None):
+    def get_next_state(self, state, action):
         '''returns the next state given a state and an action'''
         action = int(action)
-
-        if state==None: state = self.s
         new_v_pos, new_bv_pos, new_a_pos, new_t_pos, new_carrying = map(
             deepcopy,
             [state.v_pos, state.bv_pos, state.a_pos, state.t_pos, state.carrying])
@@ -240,7 +238,7 @@ class VasesGrid(DeterministicEnv):
         return VasesEnvState(new_v_pos, new_bv_pos, new_a_pos, new_t_pos, new_carrying)
 
 
-    def print_state(self, state, spec=None):
+    def print_state(self, state):
         '''
         Renders the state. Each tile in the gridworld corresponds to a 2x2 cell in
         the rendered state.

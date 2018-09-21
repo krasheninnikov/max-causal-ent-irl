@@ -2,7 +2,7 @@ import numpy as np
 from copy import copy, deepcopy
 from itertools import product
 
-from envs.env import DeterministicEnv
+from envs.env import Env
 from envs.utils import unique_perm, Direction
 
 
@@ -13,7 +13,7 @@ class ApplesState(object):
     def __init__(self, agent_pos, tree_states, bucket_states, carrying_apple):
         """
         agent_pos: (orientation, x, y) tuple for the agent's location
-        tree_states: Dictionary mapping (x, y) tuples to integers.
+        tree_states: Dictionary mapping (x, y) tuples to booleans.
         bucket_states: Dictionary mapping (x, y) tuples to integers.
         carrying_apple: Boolean, True if carrying an apple, False otherwise.
         """
@@ -34,7 +34,7 @@ class ApplesState(object):
         return hash(self.agent_pos + get_vals(self.tree_states) + get_vals(self.bucket_states))
 
 
-class ApplesEnv(DeterministicEnv):
+class ApplesEnv(Env):
     def __init__(self, spec, compute_transitions=True):
         """
         height: Integer, height of the grid. Y coordinates are in [0, height).
@@ -49,16 +49,19 @@ class ApplesEnv(DeterministicEnv):
         """
         self.height = spec.height
         self.width = spec.width
+        self.apple_regen_probability = spec.apple_regen_probability
+        self.bucket_capacity = spec.bucket_capacity
         self.init_state = deepcopy(spec.init_state)
+
         self.tree_locations = list(self.init_state.tree_states.keys())
         self.bucket_locations = list(self.init_state.bucket_states.keys())
         used_locations = set(self.tree_locations + self.bucket_locations)
         self.possible_agent_locations = list(filter(
             lambda pos: pos not in used_locations,
             product(range(self.width), range(self.height))))
+
         self.num_trees = len(self.tree_locations)
         self.num_buckets = len(self.bucket_locations)
-        self.spec = None  # TODO: Remove this line? test.py might use it?
 
         self.nA = 5
         self.num_features = len(self.s_to_f(self.init_state))
@@ -67,8 +70,7 @@ class ApplesEnv(DeterministicEnv):
 
         if compute_transitions:
             states = self.enumerate_states()
-            self.make_transition_matrices(
-                states, range(self.nA), self.nS, self.nA)
+            self.make_transition_matrices(states, range(self.nA))
             self.make_f_matrix(self.nS, self.num_features)
 
 
@@ -78,10 +80,10 @@ class ApplesEnv(DeterministicEnv):
             product(range(4), range(self.width), range(self.height)))
         all_tree_states = map(
             lambda tree_vals: dict(zip(self.tree_locations, tree_vals)),
-            product(range(11), repeat=self.num_trees))
+            product([True, False], repeat=self.num_trees))
         all_bucket_states = map(
             lambda bucket_vals: dict(zip(self.bucket_locations, bucket_vals)),
-            product(range(11), repeat=self.num_buckets))
+            product(range(self.bucket_capacity + 1), repeat=self.num_buckets))
         all_states = map(
             lambda x: ApplesState(*x),
             product(all_agent_positions, all_tree_states, all_bucket_states, [True, False]))
@@ -113,7 +115,7 @@ class ApplesEnv(DeterministicEnv):
         - For each other location, whether the agent is on that location
         '''
         num_bucket_apples = sum(s.bucket_states.values())
-        num_tree_apples = sum((int(t == 10) for t in s.tree_states.values()))
+        num_tree_apples = sum(map(int, s.tree_states.values()))
         carrying_apple = int(s.carrying_apple)
         agent_pos = s.agent_pos[1], s.agent_pos[2]  # Drop orientation
         features = [int(agent_pos == pos) for pos in self.possible_agent_locations]
@@ -121,20 +123,14 @@ class ApplesEnv(DeterministicEnv):
         return np.array(features)
 
 
-    def state_step(self, action, state=None):
+    def get_next_states(self, state, action):
         '''returns the next state given a state and an action'''
         action = int(action)
-        if state==None: state = self.s
-
         orientation, x, y = state.agent_pos
         new_orientation, new_x, new_y = state.agent_pos
         new_tree_states = deepcopy(state.tree_states)
         new_bucket_states = deepcopy(state.bucket_states)
         new_carrying_apple = state.carrying_apple
-
-        # Environment effects
-        for key, val in new_tree_states.items():
-            new_tree_states[key] = min(val + 1, 10)
 
         if action < 4:
             new_orientation = action
@@ -156,19 +152,39 @@ class ApplesEnv(DeterministicEnv):
                 if obj_pos in new_bucket_states:
                     prev_apples = new_bucket_states[obj_pos]
                     new_bucket_states[obj_pos] = min(prev_apples + 1, 10)
-            elif obj_pos in new_tree_states and new_tree_states[obj_pos] == 10:
+            elif obj_pos in new_tree_states and new_tree_states[obj_pos]:
                 new_carrying_apple = True
-                new_tree_states[obj_pos] = 0
+                new_tree_states[obj_pos] = False
             else:
                 # Interact while holding nothing and not facing a tree.
                 pass
 
-        new_agent_pos = new_orientation, new_x, new_y
-        return ApplesState(
-            new_agent_pos, new_tree_states, new_bucket_states, new_carrying_apple)
+        new_pos = new_orientation, new_x, new_y
+
+        def make_state(prob_apples_tuple):
+            prob, tree_apples = prob_apples_tuple
+            trees = dict(zip(self.tree_locations, tree_apples))
+            s = ApplesState(new_pos, trees, new_bucket_states, new_carrying_apple)
+            return (prob, s, 0)
+
+        # For apple regeneration, don't regenerate apples that were just picked,
+        # so use the apple booleans from the original state
+        old_tree_apples = [state.tree_states[loc] for loc in self.tree_locations]
+        return list(map(make_state, self.regen_apples(old_tree_apples)))
+
+    def regen_apples(self, tree_apples):
+        if len(tree_apples) == 0:
+            yield (1, [])
+            return
+        for prob, apples in self.regen_apples(tree_apples[1:]):
+            if tree_apples[0]:
+                yield prob, [True] + apples
+            else:
+                yield prob * self.apple_regen_probability, [True] + apples
+                yield prob * (1 - self.apple_regen_probability), [False] + apples
 
 
-    def print_state(self, state, spec=None):
+    def print_state(self, state):
         '''Renders the state.'''
         h, w = self.height, self.width
         canvas = np.zeros(tuple([2*h-1, 2*w+1]), dtype='int8')
@@ -180,11 +196,8 @@ class ApplesEnv(DeterministicEnv):
             canvas[:, x] = 2
 
         # trees
-        for (x, y), val in state.tree_states.items():
-            if val == 10:
-                canvas[2*y, 2*x+1] = 3
-            else:
-                canvas[2*y, 2*x+1] = 4
+        for (x, y), has_apple in state.tree_states.items():
+            canvas[2*y, 2*x+1] = 3 if has_apple else 4
 
         for x, y in self.bucket_locations:
             canvas[2*y, 2*x+1] = 5
