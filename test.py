@@ -88,9 +88,7 @@ def get_problem_parameters(env_name, problem_name):
 
     spec, cur_state, r_task, r_true = PROBLEMS[env_name][problem_name]
     env = ENV_CLASSES[env_name](spec)
-    s_current = np.zeros(env.nS)
-    s_current[env.get_num_from_state(cur_state)] = 1
-    return env, s_current, r_task, r_true
+    return env, env.get_num_from_state(cur_state), r_task, r_true
 
 
 def get_r_prior(prior, reward_center):
@@ -156,7 +154,7 @@ def experiment_wrapper(env_name='vases',
     elif inference_algorithm == "sampling":
         r_samples = policy_walk_last_state_prob(
             env, s_current, p_0, horizon, temperature, n_samples, step_size,
-            r_prior, gamma, adaptive_step_size=True)
+            r_prior, gamma, adaptive_step_size=False, print_level=print_level)
         r_inferred = np.mean(r_samples[mcmc_burn_in::], axis=0)
     elif inference_algorithm in ["deviation", "reachability", "pass"]:
         r_inferred = None
@@ -229,7 +227,9 @@ PARAMETERS = [
     ('-g', '--gamma', '1.0', float,
      'Discounting rate for infinite horizon discounted algorithms.'),
     ('-s', '--seed', '0', int,
-     'Random seed.')
+     'Random seed.'),
+    ('-v', '--print_level', '1', int,
+     'Level of verbosity.')
 ]
 
 # Writing output for experiments

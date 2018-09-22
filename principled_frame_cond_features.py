@@ -108,10 +108,12 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
         d_T_step = sum(d_last_step_list)
 
         g_div_d_last_step = np.zeros(mdp.f_matrix.shape[1])
-        if d_last_step[np.where(s_current)]!=0:
-            g_div_d_last_step = G[np.where(s_current)]/d_last_step[np.where(s_current)]
+        if d_last_step[s_current]!=0:
+            g_div_d_last_step = G[s_current] / d_last_step[s_current]
 
-        dL_dr_vec = g_div_d_last_step.flatten() + (s_current - d_T_step) @ mdp.f_matrix
+        s_current_vec = np.zeros(env.nS)
+        s_current_vec[s_current] = 1
+        dL_dr_vec = g_div_d_last_step.flatten() + (s_current_vec - d_T_step) @ mdp.f_matrix
 
         # Gradient of the prior
         if r_prior!= None: dL_dr_vec += r_prior.logdistr_grad(r_vec)
