@@ -63,7 +63,7 @@ class ApplesEnv(Env):
         self.num_trees = len(self.tree_locations)
         self.num_buckets = len(self.bucket_locations)
 
-        self.nA = 5
+        self.nA = 6
         self.num_features = len(self.s_to_f(self.init_state))
 
         self.reset()
@@ -133,8 +133,9 @@ class ApplesEnv(Env):
         new_bucket_states = deepcopy(state.bucket_states)
         new_carrying_apple = state.carrying_apple
 
-        if action < 4:
-            new_orientation = action
+        if action == Direction.STAY:
+            pass
+        elif action < len(Direction.ALL_DIRECTIONS)
             move_x, move_y = Direction.move_in_direction_number((x, y), action)
             # New position is legal
             if (0 <= move_x < self.width and \
@@ -144,7 +145,7 @@ class ApplesEnv(Env):
             else:
                 # Move only changes orientation, which we already handled
                 pass
-        else:
+        elif action == 5:
             obj_pos = Direction.move_in_direction_number((x, y), orientation)
             if state.carrying_apple:
                 # We always drop the apple
@@ -159,6 +160,8 @@ class ApplesEnv(Env):
             else:
                 # Interact while holding nothing and not facing a tree.
                 pass
+        else:
+            raise ValueError('Invalid action {}'.format(action))
 
         new_pos = new_orientation, new_x, new_y
 
@@ -235,7 +238,8 @@ class ApplesEnv(Env):
             Direction.NORTH: '↑',
             Direction.SOUTH: '↓',
             Direction.WEST: '←',
-            Direction.EAST: '→'
+            Direction.EAST: '→',
+            Direction.STAY: '*'
         }
         direction = Direction.get_direction_from_number(orientation)
         return DIRECTION_TO_CHAR[direction]

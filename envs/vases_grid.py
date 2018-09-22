@@ -41,7 +41,7 @@ class VasesGrid(DeterministicEnv):
         self.spec = spec
         self.init_state = deepcopy(spec.init_state)
 
-        self.nA = 5
+        self.nA = 6
 
         self.f_include_masks = f_include_masks
         f_len = len(self.s_to_f(self.init_state))
@@ -193,7 +193,11 @@ class VasesGrid(DeterministicEnv):
             new_a_pos = np.zeros_like(state.a_pos)
             new_a_pos[a_coord_new] = True
 
-        elif action==4:
+        elif action == 4:
+            # Stay action; do nothing
+            pass
+
+        elif action == 5:
             obj_coord = shift_coord_array[int(a_coord[0])]
             obj_coord = (obj_coord[0] + a_coord[1], obj_coord[1] + a_coord[2])
 
