@@ -7,11 +7,11 @@ from envs.vases_grid import VasesGrid, VasesEnvState #, print_state, str_to_stat
 from envs.utils import unique_perm, zeros_with_ones, printoptions
 from envs.vases_spec import VasesEnvState2x3V2D3, VasesEnvSpec2x3V2D3, VasesEnvState2x3Broken, VasesEnvSpec2x3Broken
 
-from value_iter_and_policy import vi_boltzmann_deterministic, vi_rational_deterministic
-from occupancy_measure import compute_d_last_step_deterministic
+from value_iter import value_iter
+from principled_frame_cond_features import compute_d_last_step
 
 def log_last_step_om(s_current, env, policy, p_0, horizon):
-    d_last_step  = compute_d_last_step_deterministic(env, policy, p_0, horizon)
+    d_last_step  = compute_d_last_step(env, policy, p_0, horizon)
     return np.log(d_last_step[np.where(s_current)])
 
 
@@ -34,14 +34,14 @@ def policy_walk_last_state_prob(env, s_current, p_0, h, temp, n_samples,
         r = r_prior.rvs()
 
     # probability of the initial reward
-    V, Q, pi = vi_boltzmann_deterministic(env, gamma, env.f_matrix @ r, h, temp)
+    V, Q, pi = value_iter(env, gamma, env.f_matrix @ r, h, temp)
     log_p = log_last_step_om(s_current, env, pi, p_0, h)
     if r_prior is not None:
         log_p += np.sum(r_prior.logpdf(r))
 
     while True:
         r_prime = np.random.normal(r, step_size)
-        V, Q, pi = vi_boltzmann_deterministic(env, gamma, env.f_matrix @ r_prime, h, temp)
+        V, Q, pi = value_iter(env, gamma, env.f_matrix @ r_prime, h, temp)
 
         log_p_1 = log_last_step_om(s_current, env, pi, p_0, h)
         if r_prior is not None:

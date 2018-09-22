@@ -23,7 +23,7 @@ from sampling_one_s_mceirl import policy_walk_last_state_prob
 from principled_frame_cond_features import om_method, norm_distr, laplace_distr
 from relative_reachability import relative_reachability_penalty
 
-from value_iter_and_policy import vi_boltzmann, vi_boltzmann_deterministic
+from value_iter import value_iter
 
 
 def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
@@ -37,7 +37,9 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
     if relative_reachability:
         r_r = relative_reachability_penalty(env, h, env.s)
         r_s -= weight * r_r
-    V, Q, policy = vi_boltzmann_deterministic(env, 1, r_s, h, temp)
+
+    # For evaluation, plan optimally instead of Boltzmann-rationally
+    V, Q, policy = value_iter(env, 1, r_s, h, temperature=None)
 
     if current_s is None:
         env.reset()
@@ -50,7 +52,8 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
 
     # steps = [4, 1, 4, 1]
     total_reward = 0
-    print('Last {} of the {} rolled out steps:'.format(last_steps_printed, h))
+    if print_level >= 1:
+        print('Last {} of the {} rolled out steps:'.format(last_steps_printed, h))
     for i in range(h):
         a = np.random.choice(env.nA, p=policy[env.get_num_from_state(env.s),:])
         # a = steps[i]
@@ -117,6 +120,7 @@ def experiment_wrapper(env_name='vases',
                        mcmc_burn_in=400,
                        step_size=.01,
                        gamma=1,
+                       seed=0,
                        print_level=1):
     # Check the parameters so that we fail fast
     assert inference_algorithm in ['mceirl', 'sampling', 'deviation', 'reachability', 'pass']
@@ -126,6 +130,7 @@ def experiment_wrapper(env_name='vases',
     if combination_algorithm == 'use_prior':
         assert inference_algorithm in ['mceirl', 'sampling']
 
+    np.random.seed(seed)
     env, s_current, r_task, r_true = get_problem_parameters(env_name, problem_spec)
 
     if print_level >= 1:
@@ -193,7 +198,7 @@ def experiment_wrapper(env_name='vases',
 PARAMETERS = [
     ('-e', '--env_name', 'room', None,
      'Environment to run: one of [vases, boxes, room]'),
-    ('-s', '--problem_spec', 'simple', None,
+    ('-p', '--problem_spec', 'simple', None,
      'The name of the problem specification to solve.'),
     ('-i', '--inference_algorithm', 'pass', None,
      'Frame condition inference algorithm: one of [mceirl, sampling, deviation, reachability, pass].'),
@@ -209,7 +214,7 @@ PARAMETERS = [
      'Learning rate for gradient descent. Applies when inference_algorithm is mceirl.'),
     ('-k', '--inferred_weight', '1', float,
      'Weight for the inferred reward when adding task and inferred rewards. Applies if combination_algorithm is add_rewards.'),
-    ('-p', '--epochs', '100', int,
+    ('-m', '--epochs', '20', int,
      'Number of gradient descent steps to take.'),
     ('-u', '--uniform_prior', 'False', lambda x: x != 'False',
      'Whether to use a uniform prior over initial states, or to know the initial state. Either true or false.'),
@@ -223,6 +228,8 @@ PARAMETERS = [
      'Step size for computing neighbor reward functions. Only has an effect if inference_algorithm is sampling.'),
     ('-g', '--gamma', '1.0', float,
      'Discounting rate for infinite horizon discounted algorithms.'),
+    ('-s', '--seed', '0', int,
+     'Random seed.')
 ]
 
 # Writing output for experiments

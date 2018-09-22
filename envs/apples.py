@@ -70,7 +70,8 @@ class ApplesEnv(Env):
 
         if compute_transitions:
             states = self.enumerate_states()
-            self.make_transition_matrices(states, range(self.nA))
+            self.make_transition_matrices(
+                states, range(self.nA), self.nS, self.nA)
             self.make_f_matrix(self.nS, self.num_features)
 
 

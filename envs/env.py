@@ -1,6 +1,7 @@
 import numpy as np
 from collections import defaultdict
 from copy import deepcopy
+from scipy.sparse import lil_matrix
 
 class Env(object):
     def __init__(self):
@@ -9,12 +10,13 @@ class Env(object):
     def is_deterministic(self):
         return False
 
-    def make_transition_matrices(self, states_iter, actions_iter):
+    def make_transition_matrices(self, states_iter, actions_iter, nS, nA):
         """
         states_iter: ITERATOR of states (i.e. can only be used once)
         actions_iter: ITERATOR of actions (i.e. can only be used once)
         """
         P = {}
+        T_matrix = lil_matrix((nS * nA, nS))
         actions = list(actions_iter)
         for state in states_iter:
             state_id = self.get_num_from_state(state)
@@ -23,8 +25,12 @@ class Env(object):
                 next_s = self.get_next_states(state, action)
                 next_s = [(p, self.get_num_from_state(s), r) for p, s, r in next_s]
                 P[state_id][action] = next_s
-
+                state_action_index = state_id * nA + action
+                for prob, next_state_id, _ in next_s:
+                    T_matrix[state_action_index, next_state_id] = prob
         self.P = P
+        self.T_matrix = T_matrix.tocsr()
+        self.T_matrix_transpose = T_matrix.transpose().tocsr()
 
 
     def make_f_matrix(self, nS, num_features):
@@ -38,13 +44,10 @@ class Env(object):
         self.timestep = 0
         self.s = deepcopy(self.init_state)
 
-        obs = self.s_to_f(self.s)
-        return np.array(obs, dtype='float32').flatten() #, obs.T @ self.r_vec, False, defaultdict(lambda : '')
-
     def state_step(self, action, state=None):
         if state == None: state = self.s
         next_states = self.get_next_states(state, action)
-        probabilities = [p for p, _ in next_states]
+        probabilities = [p for p, _, _ in next_states]
         idx = np.random.choice(np.arange(len(next_states)), p=probabilities)
         return next_states[idx][1]
 
@@ -80,8 +83,7 @@ class DeterministicEnv(Env):
         nS: Number of states
         nA: Number of actions
         """
-        Env.make_transition_matrices(self, states_iter, actions_iter)
-        self._make_stochastic_transition_matrix(nS, nA)
+        Env.make_transition_matrices(self, states_iter, actions_iter, nS, nA)
         self._make_deterministic_transition_matrix(nS, nA)
         self._make_deterministic_transition_transpose_matrix(nS, nA)
 
@@ -92,13 +94,6 @@ class DeterministicEnv(Env):
     def state_step(self, action, state=None):
         if state == None: state = self.s
         return self.get_next_state(state, action)
-
-    def _make_stochastic_transition_matrix(self, nS, nA):
-        '''Create self.T, a matrix with index S,A,S' -> P(S'|S,A)      '''
-        self.T = np.zeros([nS, nA, nS])
-        for s in range(nS):
-            for a in range(nA):
-                self.T[s, a, self.P[s][a][0][1]] = 1
 
     def _make_deterministic_transition_matrix(self, nS, nA):
         '''Create self.deterministic_T, a matrix with index S,A -> S'   '''
