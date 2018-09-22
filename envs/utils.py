@@ -81,7 +81,8 @@ class Direction(object):
     SOUTH = (0, 1)
     EAST  = (1, 0)
     WEST  = (-1, 0)
-    INDEX_TO_DIRECTION = [NORTH, SOUTH, EAST, WEST]
+    STAY = (0, 0)
+    INDEX_TO_DIRECTION = [NORTH, SOUTH, EAST, WEST, STAY]
     DIRECTION_TO_INDEX = { a:i for i, a in enumerate(INDEX_TO_DIRECTION) }
     ALL_DIRECTIONS = INDEX_TO_DIRECTION
 

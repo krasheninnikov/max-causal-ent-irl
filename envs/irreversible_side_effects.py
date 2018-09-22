@@ -32,7 +32,7 @@ class BoxesEnv(DeterministicEnv):
         self.spec = spec
         self.init_state = deepcopy(spec.init_state)
 
-        self.nA = 4
+        self.nA = 5
 
         self.nF = 4
         self.f_include_masks = f_include_masks
@@ -119,6 +119,9 @@ class BoxesEnv(DeterministicEnv):
     def get_next_state(self, state, action):
         '''returns the next state given a state and an action'''
         action = int(action)
+        if action == 4: # Stay action, do nothing
+            return state
+
         a_mask = self.spec.agent_mask
         b_mask = self.spec.box_mask
         wall_mask = self.spec.wall_mask

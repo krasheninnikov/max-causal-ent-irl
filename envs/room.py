@@ -55,7 +55,7 @@ class RoomEnv(DeterministicEnv):
         self.carpet_locations = set(spec.carpet_locations)
         self.feature_locations = list(spec.feature_locations)
 
-        self.nA = 4
+        self.nA = 5
         self.num_features = len(self.s_to_f(self.init_state))
 
         self.reset()
@@ -190,7 +190,8 @@ class RoomEnv(DeterministicEnv):
             Direction.NORTH: '^',
             Direction.SOUTH: 'v',
             Direction.EAST: '>',
-            Direction.WEST: '<'
+            Direction.WEST: '<',
+            Direction.STAY: '*'
         }
         get_direction = Direction.get_direction_from_number
         action_to_mark = [dir_to_mark[get_direction(i)] for i in range(4)]
