@@ -205,32 +205,32 @@ class VasesEnvSpec3x3(object):
         '''
         self.d_mask = np.array([[1, 0, 1],
                                 [0, 0, 0],
-                                [1, 0, 1]], dtype='bool')
-        self.table_mask = np.array([[0, 0, 1],
+                                [0, 0, 1]], dtype='bool')
+        self.table_mask = np.array([[1, 0, 0],
                                     [0, 0, 0],
                                     [0, 0, 1]], dtype='bool')
         self.bv_mask = np.array([[0, 1, 0],
                                  [1, 1, 1],
-                                 [0, 1, 0]], dtype='bool')
+                                 [1, 1, 0]], dtype='bool')
         self.agent_mask = np.array([[[0, 1, 0],
                                      [1, 1, 1],
-                                     [0, 1, 0]],
+                                     [1, 1, 0]],
                                     [[0, 1, 0],
                                      [1, 1, 1],
-                                     [0, 1, 0]],
+                                     [1, 1, 0]],
                                     [[0, 1, 0],
                                      [1, 1, 1],
-                                     [0, 1, 0]],
+                                     [1, 1, 0]],
                                     [[0, 1, 0],
                                      [1, 1, 1],
-                                     [0, 1, 0]]], dtype='bool')
+                                     [1, 1, 0]]], dtype='bool')
 
         self.t_mask = np.array([[1, 1, 1],
                                 [1, 1, 1],
                                 [1, 1, 1]], dtype='bool')
 
         self.n_v = 2
-        self.n_t = 1
+        self.n_t = 2
         self.init_state = VasesEnvInitialState3x3
 
 
@@ -241,11 +241,11 @@ VasesEnvInitialState3x3 = VasesEnvState(
     np.array([[0, 0, 0],
               [0, 0, 0],
               [0, 0, 0]], dtype='bool'),
-    np.array([[[0, 0, 0],
+    np.array([[[0, 1, 0],
                [0, 0, 0],
                [0, 0, 0]],
               [[0, 0, 0],
-               [0, 1, 0],
+               [0, 0, 0],
                [0, 0, 0]],
               [[0, 0, 0],
                [0, 0, 0],
@@ -255,7 +255,7 @@ VasesEnvInitialState3x3 = VasesEnvState(
                [0, 0, 0]]], dtype='bool'),
     np.array([[0, 0, 0],
               [1, 0, 0],
-              [0, 0, 0]], dtype='bool'),
+              [0, 1, 0]], dtype='bool'),
     np.array([0, 0], dtype='bool')
 )
 
@@ -263,15 +263,15 @@ VasesEnvInitialState3x3 = VasesEnvState(
 VasesEnvFinalState3x3 = VasesEnvState(
     np.array([[1, 0, 0],
               [0, 0, 0],
-              [1, 0, 0]], dtype='bool'),
+              [0, 0, 1]], dtype='bool'),
     np.array([[0, 0, 0],
               [0, 0, 0],
               [0, 0, 0]], dtype='bool'),
     np.array([[[0, 0, 0],
                [0, 0, 0],
                [0, 0, 0]],
-              [[0, 0, 0],
-               [1, 0, 0],
+              [[0, 1, 0],
+               [0, 0, 0],
                [0, 0, 0]],
               [[0, 0, 0],
                [0, 0, 0],
@@ -279,9 +279,9 @@ VasesEnvFinalState3x3 = VasesEnvState(
               [[0, 0, 0],
                [0, 0, 0],
                [0, 0, 0]]], dtype='bool'),
-    np.array([[0, 0, 0],
+    np.array([[0, 0, 1],
               [0, 0, 0],
-              [1, 0, 0]], dtype='bool'),
+              [0, 0, 1]], dtype='bool'),
     np.array([0, 0], dtype='bool')
 )
 
