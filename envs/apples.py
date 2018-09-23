@@ -26,12 +26,13 @@ class ApplesState(object):
         return isinstance(other, ApplesState) and \
             self.agent_pos == other.agent_pos and \
             self.tree_states == other.tree_states and \
-            self.bucket_states == other.bucket_states
+            self.bucket_states == other.bucket_states and \
+            self.carrying_apple == other.carrying_apple
 
     def __hash__(self):
         def get_vals(dictionary):
             return tuple([dictionary[loc] for loc in sorted(dictionary.keys())])
-        return hash(self.agent_pos + get_vals(self.tree_states) + get_vals(self.bucket_states))
+        return hash(self.agent_pos + get_vals(self.tree_states) + get_vals(self.bucket_states) + (self.carrying_apple,))
 
 
 class ApplesEnv(Env):

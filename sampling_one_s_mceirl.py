@@ -22,7 +22,7 @@ def policy_walk_last_state_prob(
     '''
 
     def log_last_step_om(policy):
-        d_last_step  = compute_d_last_step(env, policy, p_0, h)
+        d_last_step = compute_d_last_step(env, policy, p_0, h)
         return np.log(d_last_step[s_current])
 
     def log_probability(r_vec, verbose=False):
@@ -46,6 +46,9 @@ def policy_walk_last_state_prob(
         r = .01*np.random.randn(env.num_features)
     else:
         r = r_prior.rvs()
+
+    if print_level >= 1:
+        print('Initial reward: {}'.format(r))
 
     # probability of the initial reward
     log_p = log_probability(r, verbose=(print_level >= 1))
@@ -79,7 +82,7 @@ def policy_walk_last_state_prob(
 
         if verbose:
             # Acceptance probability should not be very high or very low
-            print(acceptance_probability)
+            print('Acceptance probability is {}'.format(acceptance_probability))
             # print(a_running_mean[-1])
             # print(step_size)
 
