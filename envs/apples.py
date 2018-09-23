@@ -133,9 +133,10 @@ class ApplesEnv(Env):
         new_bucket_states = deepcopy(state.bucket_states)
         new_carrying_apple = state.carrying_apple
 
-        if action == Direction.STAY:
+        if action == Direction.get_number_from_direction(Direction.STAY):
             pass
         elif action < len(Direction.ALL_DIRECTIONS):
+            new_orientation = action
             move_x, move_y = Direction.move_in_direction_number((x, y), action)
             # New position is legal
             if (0 <= move_x < self.width and \
@@ -174,15 +175,16 @@ class ApplesEnv(Env):
         # For apple regeneration, don't regenerate apples that were just picked,
         # so use the apple booleans from the original state
         old_tree_apples = [state.tree_states[loc] for loc in self.tree_locations]
-        return list(map(make_state, self.regen_apples(old_tree_apples)))
+        new_tree_apples = [new_tree_states[loc] for loc in self.tree_locations]
+        return list(map(make_state, self.regen_apples(old_tree_apples, new_tree_apples)))
 
-    def regen_apples(self, tree_apples):
-        if len(tree_apples) == 0:
+    def regen_apples(self, old_tree_apples, new_tree_apples):
+        if len(old_tree_apples) == 0:
             yield (1, [])
             return
-        for prob, apples in self.regen_apples(tree_apples[1:]):
-            if tree_apples[0]:
-                yield prob, [True] + apples
+        for prob, apples in self.regen_apples(old_tree_apples[1:], new_tree_apples[1:]):
+            if old_tree_apples[0]:
+                yield prob, [new_tree_apples[0]] + apples
             else:
                 yield prob * self.apple_regen_probability, [True] + apples
                 yield prob * (1 - self.apple_regen_probability), [False] + apples

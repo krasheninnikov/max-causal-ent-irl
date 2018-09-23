@@ -6,7 +6,7 @@ from utils import Direction
 
 class TestRoomSpec(object):
     def __init__(self):
-        """Implements an initial state for Room.
+        """Test spec for the Room environment.
 
         G is a goal location, V is a vase, C is a carpet, A is the agent.
         -------

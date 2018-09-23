@@ -4,7 +4,7 @@ from envs.utils import Direction
 
 class ApplesSpec(object):
     def __init__(self, height, width, init_state, apple_regen_probability, bucket_capacity):
-        """See ApplesEnv.__init__ in room.py for details."""
+        """See ApplesEnv.__init__ in apples.py for details."""
         self.height = height
         self.width = width
         self.init_state = init_state
