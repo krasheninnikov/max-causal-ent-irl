@@ -111,7 +111,7 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
         if d_last_step[s_current]!=0:
             g_div_d_last_step = G[s_current] / d_last_step[s_current]
 
-        s_current_vec = np.zeros(env.nS)
+        s_current_vec = np.zeros(mdp.nS)
         s_current_vec[s_current] = 1
         dL_dr_vec = g_div_d_last_step.flatten() + (s_current_vec - d_T_step) @ mdp.f_matrix
 

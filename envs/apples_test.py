@@ -12,7 +12,7 @@ class TestApplesSpec(object):
         -----
         |T T|
         |   |
-        |A B|
+        |AB |
         -----
         """
         self.height = 3
@@ -20,7 +20,7 @@ class TestApplesSpec(object):
         self.init_state = ApplesState(
             agent_pos=(0, 0, 2),
             tree_states={(0, 0): True, (2, 0): True},
-            bucket_states={(2, 2): 0},
+            bucket_states={(1, 2): 0},
             carrying_apple=False)
         # Use a power of 2, to avoid rounding issues
         self.apple_regen_probability = 1.0 / 4
@@ -44,7 +44,7 @@ class TestApplesEnv(unittest.TestCase):
 
         def make_state(agent_pos, tree1, tree2, bucket, carrying_apple):
             tree_states = { (0, 0): tree1, (2, 0): tree2 }
-            bucket_state = { (2, 2): bucket }
+            bucket_state = { (1, 2): bucket }
             return ApplesState(agent_pos, tree_states, bucket_state, carrying_apple)
 
         apples_env = ApplesEnv(TestApplesSpec(), compute_transitions=False)
@@ -52,14 +52,14 @@ class TestApplesEnv(unittest.TestCase):
             (u, 1.0,    make_state((u, 0, 1), True, True, 0, False)),
             (i, 1.0,    make_state((u, 0, 1), False, True, 0, True)),
             (r, 3.0/4,  make_state((r, 1, 1), False, True, 0, True)),
-            (r, 3.0/4,  make_state((r, 2, 1), False, True, 0, True)),
-            (d, 3.0/4,  make_state((d, 2, 1), False, True, 0, True)),
-            (i, 3.0/4,  make_state((d, 2, 1), False, True, 1, False)),
-            (u, 3.0/4,  make_state((u, 2, 1), False, True, 1, False)),
-            (i, 3.0/4,  make_state((u, 2, 1), False, False, 1, True)),
-            (d, 9.0/16, make_state((d, 2, 1), False, False, 1, True)),
-            (i, 3.0/16, make_state((d, 2, 1), True, False, 2, False)),
-            (s, 1.0/4,  make_state((d, 2, 1), True, True, 2, False)),
+            (d, 3.0/4,  make_state((d, 1, 1), False, True, 0, True)),
+            (i, 3.0/4,  make_state((d, 1, 1), False, True, 1, False)),
+            (u, 3.0/4,  make_state((u, 1, 0), False, True, 1, False)),
+            (r, 3.0/4,  make_state((r, 1, 0), False, True, 1, False)),
+            (i, 3.0/4,  make_state((r, 1, 0), False, False, 1, True)),
+            (d, 9.0/16, make_state((d, 1, 1), False, False, 1, True)),
+            (i, 3.0/16, make_state((d, 1, 1), True, False, 2, False)),
+            (s, 1.0/4,  make_state((d, 1, 1), True, True, 2, False)),
         ])
 
 if __name__ == '__main__':
