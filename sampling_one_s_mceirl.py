@@ -45,7 +45,7 @@ def policy_walk_last_state_prob(
     if r_prior is None:
         r = .01*np.random.randn(env.num_features)
     else:
-        r = r_prior.rvs()
+        r = 0.1 * r_prior.rvs()
 
     if print_level >= 1:
         print('Initial reward: {}'.format(r))

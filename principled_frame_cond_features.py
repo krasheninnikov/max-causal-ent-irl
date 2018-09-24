@@ -83,7 +83,7 @@ def compute_g_deterministic(mdp, policy, p_0, T, d_last_step_list, feature_matri
     return G
 
 
-def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2, r_prior=None, r_vec=None):
+def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2, r_prior=None, r_vec=None, threshold=1e-3):
     '''Modified MaxCausalEnt that maximizes last step occupancy measure for the current state'''
     if r_vec is None:
         r_vec = .01*np.random.randn(mdp.f_matrix.shape[1])
@@ -115,4 +115,8 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
         if i%1==0:
             with printoptions(precision=4, suppress=True):
                 print('Epoch {}; Reward vector: {}'.format(i, r_vec))
+
+        if np.linalg.norm(dL_dr_vec) < threshold:
+            break
+
     return r_vec

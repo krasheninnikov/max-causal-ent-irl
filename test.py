@@ -33,7 +33,8 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
 
     r_s = env.f_matrix @ r_planning
     if penalize_deviation:
-        r_s += weight * np.sqrt(np.sum((env.f_matrix - env.s_to_f(env.s).T) ** 2, axis=1))
+        diff = env.f_matrix - env.s_to_f(env.get_state_from_num(current_s)).T
+        r_s -= weight * np.linalg.norm(diff, axis=1)
     if relative_reachability:
         r_r = relative_reachability_penalty(env, h, env.s)
         r_s -= weight * r_r
@@ -85,11 +86,11 @@ def get_problem_parameters(env_name, problem_name):
     return env, env.get_num_from_state(cur_state), r_task, r_true
 
 
-def get_r_prior(prior, reward_center):
+def get_r_prior(prior, reward_center, std):
     if prior == "gaussian":
-        return norm_distr(reward_center, 0.5)
+        return norm_distr(reward_center, std)
     elif prior == "laplace":
-        return laplace_distr(reward_center, 0.5)
+        return laplace_distr(reward_center, std)
     elif prior == "uniform":
         return None
     else:
@@ -101,17 +102,19 @@ def experiment_wrapper(env_name='vases',
                        inference_algorithm='mceirl',
                        combination_algorithm='add_rewards',
                        prior='gaussian',
-                       horizon=25,
+                       horizon=20,
+                       evaluation_horizon=20,
                        temperature=1,
                        learning_rate=.1,
                        inferred_weight=1,
                        epochs=200,
                        uniform_prior=False,
                        measures=['final_reward'],
-                       n_samples=1000,
-                       mcmc_burn_in=400,
+                       n_samples=10000,
+                       mcmc_burn_in=1000,
                        step_size=.01,
                        seed=0,
+                       std=0.5,
                        print_level=1):
     # Check the parameters so that we fail fast
     assert inference_algorithm in ['mceirl', 'sampling', 'deviation', 'reachability', 'pass']
@@ -138,7 +141,7 @@ def experiment_wrapper(env_name='vases',
     deviation = inference_algorithm == "deviation"
     reachability = inference_algorithm == "reachability"
     reward_center = r_task if combination_algorithm == "use_prior" else np.zeros(env.num_features)
-    r_prior = get_r_prior(prior, reward_center)
+    r_prior = get_r_prior(prior, reward_center, std)
 
     # TODO: Normalization of task and inferred rewards
     if inference_algorithm == "mceirl":
@@ -163,16 +166,16 @@ def experiment_wrapper(env_name='vases',
         r_final = r_task
         if r_inferred is not None:
             r_final = r_task + inferred_weight * r_inferred
-        true_reward_obtained = forward_rl(env, r_final, r_true, h=horizon, current_s=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
+        true_reward_obtained = forward_rl(env, r_final, r_true, h=evaluation_horizon, current_s=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
     elif combination_algorithm == "use_prior":
         assert r_inferred is not None
         assert (not deviation) and (not reachability)
         r_final = r_inferred
-        true_reward_obtained = forward_rl(env, r_final, r_true, h=horizon, current_s=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
+        true_reward_obtained = forward_rl(env, r_final, r_true, h=evaluation_horizon, current_s=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
     else:
         raise ValueError('Unknown combination algorithm: {}'.format(combination_algorithm))
 
-    best_possible_reward = forward_rl(env, r_true, r_true, h=horizon, current_s=s_current, print_level=0)
+    best_possible_reward = forward_rl(env, r_true, r_true, h=evaluation_horizon, current_s=s_current, print_level=0)
 
     def get_measure(measure):
         if measure == 'final_reward':
@@ -201,26 +204,30 @@ PARAMETERS = [
      'Prior on the inferred reward function: one of [gaussian, laplace, uniform]. Centered at zero if combination_algorithm is add_rewards, and at the task reward if combination_algorithm is use_prior. Only has an effect if inference_algorithm is mceirl or sampling.'),
     ('-H', '--horizon', '20', int,
      'Number of timesteps we assume the human has been acting.'),
+    ('-x', '--evaluation_horizon', '20', int,
+     'Number of timesteps we act after inferring the reward.'),
     ('-t', '--temperature', '1.0', float,
      'Boltzmann rationality constant for the human. Note this is temperature, which is the inverse of beta.'),
     ('-l', '--learning_rate', '0.1', float,
      'Learning rate for gradient descent. Applies when inference_algorithm is mceirl.'),
-    ('-k', '--inferred_weight', '1', float,
+    ('-w', '--inferred_weight', '1', float,
      'Weight for the inferred reward when adding task and inferred rewards. Applies if combination_algorithm is add_rewards.'),
-    ('-m', '--epochs', '20', int,
+    ('-m', '--epochs', '500', int,
      'Number of gradient descent steps to take.'),
     ('-u', '--uniform_prior', 'False', lambda x: x != 'False',
      'Whether to use a uniform prior over initial states, or to know the initial state. Either true or false.'),
     ('-d', '--dependent_vars', 'final_reward', None,
      'Dependent variables to measure and report'),
-    ('-n', '--n_samples', '1000', int,
+    ('-n', '--n_samples', '10000', int,
      'Number of samples to generate with MCMC'),
-    ('-b', '--mcmc_burn_in', '400', int,
+    ('-b', '--mcmc_burn_in', '1000', int,
      'Number of samples to ignore at the start'),
     ('-z', '--step_size', '0.01', float,
      'Step size for computing neighbor reward functions. Only has an effect if inference_algorithm is sampling.'),
     ('-s', '--seed', '0', int,
      'Random seed.'),
+    ('-k', '--std', '0.5', float,
+     'Standard deviation for the prior'),
     ('-v', '--print_level', '1', int,
      'Level of verbosity.')
 ]
@@ -228,10 +235,11 @@ PARAMETERS = [
 # Writing output for experiments
 def get_filename(args):
     # Drop the '--' in front of the names
+    param_short_names = [name[1:] for name, _, _, _, _ in PARAMETERS]
     param_names = [name[2:] for _, name, _, _, _ in PARAMETERS]
     param_values = [args.__dict__[name] for name in param_names]
 
-    filename = '{}-' + '={}-'.join(param_names) + '={}.csv'
+    filename = '{}-' + '={}-'.join(param_short_names) + '={}.csv'
     filename = filename.format(str(datetime.datetime.now()), *param_values)
     return args.output_folder + '/' + filename
 
