@@ -39,24 +39,18 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
         r_s -= weight * r_r
 
     # For evaluation, plan optimally instead of Boltzmann-rationally
-    V, Q, policy = value_iter(env, 1, r_s, h, temperature=None)
+    policies = value_iter(env, 1, r_s, h, temperature=None)
 
-    if current_s is None:
-        env.reset()
-    else:
-        env.s = env.get_state_from_num(np.where(current_s)[0][0])
-
+    env.reset(env.get_state_from_num(current_s))
     if print_level >= 1:
         print("Executing the policy from state:")
         env.print_state(env.s); print()
 
-    # steps = [4, 1, 4, 1]
     total_reward = 0
     if print_level >= 1:
         print('Last {} of the {} rolled out steps:'.format(last_steps_printed, h))
     for i in range(h):
-        a = np.random.choice(env.nA, p=policy[env.get_num_from_state(env.s),:])
-        # a = steps[i]
+        a = np.random.choice(env.nA, p=policies[i][env.get_num_from_state(env.s),:])
         obs, reward, done, info = env.step(a, r_vec=r_true)
         total_reward += reward
 
@@ -93,9 +87,9 @@ def get_problem_parameters(env_name, problem_name):
 
 def get_r_prior(prior, reward_center):
     if prior == "gaussian":
-        return norm_distr(reward_center, 1)
+        return norm_distr(reward_center, 0.5)
     elif prior == "laplace":
-        return laplace_distr(reward_center, 1)
+        return laplace_distr(reward_center, 0.5)
     elif prior == "uniform":
         return None
     else:
@@ -117,7 +111,6 @@ def experiment_wrapper(env_name='vases',
                        n_samples=1000,
                        mcmc_burn_in=400,
                        step_size=.01,
-                       gamma=1,
                        seed=0,
                        print_level=1):
     # Check the parameters so that we fail fast
@@ -154,7 +147,7 @@ def experiment_wrapper(env_name='vases',
     elif inference_algorithm == "sampling":
         r_samples = policy_walk_last_state_prob(
             env, s_current, p_0, horizon, temperature, n_samples, step_size,
-            r_prior, gamma, adaptive_step_size=False, print_level=print_level)
+            r_prior, gamma=1, adaptive_step_size=False, print_level=print_level)
         r_inferred = np.mean(r_samples[mcmc_burn_in::], axis=0)
     elif inference_algorithm in ["deviation", "reachability", "pass"]:
         r_inferred = None
@@ -179,11 +172,13 @@ def experiment_wrapper(env_name='vases',
     else:
         raise ValueError('Unknown combination algorithm: {}'.format(combination_algorithm))
 
+    best_possible_reward = forward_rl(env, r_true, r_true, h=horizon, current_s=s_current, print_level=0)
+
     def get_measure(measure):
         if measure == 'final_reward':
             return r_final
         elif measure == 'true_reward':
-            return true_reward_obtained
+            return true_reward_obtained * 1.0 / best_possible_reward
         else:
             raise ValueError('Unknown measure {}'.format(measure))
 
@@ -224,8 +219,6 @@ PARAMETERS = [
      'Number of samples to ignore at the start'),
     ('-z', '--step_size', '0.01', float,
      'Step size for computing neighbor reward functions. Only has an effect if inference_algorithm is sampling.'),
-    ('-g', '--gamma', '1.0', float,
-     'Discounting rate for infinite horizon discounted algorithms.'),
     ('-s', '--seed', '0', int,
      'Random seed.'),
     ('-v', '--print_level', '1', int,

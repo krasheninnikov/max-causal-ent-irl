@@ -40,9 +40,10 @@ class Env(object):
             self.f_matrix[state_id, :] = self.s_to_f(state)
 
 
-    def reset(self):
+    def reset(self, state=None):
+        if state is None: state = self.init_state
         self.timestep = 0
-        self.s = deepcopy(self.init_state)
+        self.s = deepcopy(state)
 
     def state_step(self, action, state=None):
         if state == None: state = self.s

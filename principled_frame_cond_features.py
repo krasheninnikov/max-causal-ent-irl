@@ -56,20 +56,12 @@ class laplace_distr(object):
 
 def compute_d_last_step(mdp, policy, p_0, T, gamma=1, verbose=False, return_all=False):
     '''Computes the last-step occupancy measure'''
-    D_prev = p_0
-    d_last_step_list = [D_prev]
-
-    t = 0
-    for t in range(T):
-
-        # for T-step OM we'd do D=np.copy(P_0). However, we want the last step one, so:
-        D = np.zeros_like(p_0)
-
+    D, d_last_step_list = p_0, [p_0]
+    for t in range(T-1):
         # D(s') = \sum_{s, a} D_prev(s) * p(a | s) * p(s' | s, a)
-        state_action_prob = np.expand_dims(D_prev, axis=1) * policy
+        state_action_prob = np.expand_dims(D, axis=1) * policy[t]
         D = mdp.T_matrix_transpose.dot(state_action_prob.flatten())
 
-        D_prev = np.copy(D)
         if verbose is True: print(D)
         if return_all: d_last_step_list.append(D)
 
@@ -79,16 +71,15 @@ def compute_d_last_step(mdp, policy, p_0, T, gamma=1, verbose=False, return_all=
 
 def compute_g_deterministic(mdp, policy, p_0, T, d_last_step_list, feature_matrix):
     # base case
-    G_prev = np.zeros((mdp.nS, feature_matrix.shape[1]))
+    G = np.zeros((mdp.nS, feature_matrix.shape[1]))
 
     # recursive case
     for t in range(T-1):
         # G(s') = \sum_{s, a} p(a | s) p(s' | s, a) [ d_last_step_list[t] feature_matrix[s] + G_prev[s] ]
-        tmp = np.expand_dims(d_last_step_list[t], axis=1) * feature_matrix + G_prev
-        tmp = np.expand_dims(policy, axis=-1) * np.expand_dims(tmp, axis=1)
+        tmp = np.expand_dims(d_last_step_list[t], axis=1) * feature_matrix + G
+        tmp = np.expand_dims(policy[t], axis=-1) * np.expand_dims(tmp, axis=1)
         tmp = tmp.reshape((mdp.nS * mdp.nA), mdp.num_features)
         G = mdp.T_matrix_transpose.dot(tmp)
-        G_prev = np.copy(G)
     return G
 
 
@@ -100,7 +91,7 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
 
     for i in range(epochs):
         # Compute the Boltzmann rational policy \pi_{s,a} = \exp(Q_{s,a} - V_s)
-        V, Q, policy = value_iter(mdp, 1, mdp.f_matrix @ r_vec, horizon, temp)
+        policy = value_iter(mdp, 1, mdp.f_matrix @ r_vec, horizon-1, temp)
 
         # Compute the gradient
         d_last_step, d_last_step_list = compute_d_last_step(mdp, policy, p_0, horizon, return_all=True)
