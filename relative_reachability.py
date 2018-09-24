@@ -1,6 +1,6 @@
 import numpy as np
 
-def relative_reachability_penalty(mdp, horizon, start):
+def relative_reachability_penalty(mdp, horizon, start, weight=1):
     '''
     Calculates the undiscounted relative reachability penalty for each state in an mdp, compared to the starting state baseline.
 
@@ -11,9 +11,10 @@ def relative_reachability_penalty(mdp, horizon, start):
         # print(i)
         coverage = np.maximum.reduce([coverage[mdp.deterministic_T[:, a], :] for a in range(mdp.nA)])
     
-    return np.sum(np.maximum(coverage[mdp.get_num_from_state(start), :] - coverage, 0), axis=1)
+    r_r = np.sum(np.maximum(coverage[mdp.get_num_from_state(start), :] - coverage, 0), axis=1)
+    return  r_r / np.amax(r_r)
 
- def stochastic_relative_reachability_penalty(mdp, horizon, start):
+ def stochastic_relative_reachability_penalty(mdp, horizon, start, weight=1):
     '''
     Calculates the undiscounted relative reachability penalty for each state in an mdp, compared to the starting state baseline. 
      
@@ -25,4 +26,5 @@ def relative_reachability_penalty(mdp, horizon, start):
     for i in range(horizon):
         coverage = np.amax(transition * coverage, axis=0)
     
-    return np.sum(np.maximum(coverage - coverage[start, :], 0), axis=1)
+    r_r = np.sum(np.maximum(coverage - coverage[start, :], 0), axis=1)
+    return r_r / np.amax(r_r)
