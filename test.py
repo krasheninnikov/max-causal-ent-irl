@@ -36,7 +36,8 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
         diff = env.f_matrix - env.s_to_f(env.get_state_from_num(current_s)).T
         r_s -= weight * np.linalg.norm(diff, axis=1)
     if relative_reachability:
-        r_r = relative_reachability_penalty(env, h, env.s, weight=env.nF)
+        r_r = stochastic_relative_reachability_penalty(env, h, env.s)
+        print(r_r)
         r_s -= weight * r_r
 
     # For evaluation, plan optimally instead of Boltzmann-rationally
