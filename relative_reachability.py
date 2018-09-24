@@ -12,6 +12,8 @@ def relative_reachability_penalty(mdp, horizon, start):
         coverage = np.maximum.reduce([coverage[mdp.deterministic_T[:, a], :] for a in range(mdp.nA)])
     
     r_r = np.sum(np.maximum(coverage[mdp.get_num_from_state(start), :] - coverage, 0), axis=1)
+    if np.amax(r_r) == 0:
+        return np.zeros_like(r_r)
     return  r_r / np.amax(r_r) 
 
 def stochastic_relative_reachability_penalty(mdp, horizon, start):
@@ -26,11 +28,12 @@ def stochastic_relative_reachability_penalty(mdp, horizon, start):
         for a in range(mdp.nA):
             mdp.T[s, a, mdp.deterministic_T[s, a]] = 1
 
-    transition = np.reshape(mdp.T, (mdp.T.shape[1], mdp.T.shape[0], mdp.T.shape[2]))
+    transition = np.transpose(mdp.T, (1, 0, 2))
     coverage = np.identity(mdp.nS)
     for i in range(horizon):
-        coverage = np.amax(transition * coverage, axis=0)
+        coverage = np.amax(transition @ coverage, axis=0)
     
     r_r = np.sum(np.maximum(coverage[mdp.get_num_from_state(start), :] - coverage, 0), axis=1)
-    #TODO: Consider nans
+    if np.amax(r_r) == 0:
+        return np.zeros_like(r_r)
     return r_r / np.amax(r_r)
