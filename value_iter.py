@@ -1,7 +1,7 @@
 import numpy as np
 from value_iter_and_policy import softmax
 
-def value_iter(mdp, gamma, r, horizon, temperature=1, threshold=1e-10):
+def value_iter(mdp, gamma, r, horizon, temperature=1, threshold=1e-10, time_dependent_reward=False):
         '''
         Finds the optimal state and state-action value functions via value
         iteration with the "soft" max-ent Bellman backup:
@@ -46,11 +46,14 @@ def value_iter(mdp, gamma, r, horizon, temperature=1, threshold=1e-10):
         expt = lambda x: np.exp(x/temperature)
         tlog = lambda x: temperature * np.log(x)
 
+        if not time_dependent_reward:
+            r = [r] * horizon  # Fast, since we aren't making copies
+
         policies = []
-        V = np.copy(r)
-        for _ in range(horizon):
+        V = np.copy(r[horizon-1])
+        for t in range(horizon-2, -1, -1):
             future_values = mdp.T_matrix.dot(V).reshape((nS, nA))
-            Q = np.expand_dims(r, axis=1) + gamma * future_values
+            Q = np.expand_dims(r[t], axis=1) + gamma * future_values
 
             if temperature is None:
                 V = Q.max(axis=1)
@@ -76,3 +79,13 @@ def value_iter(mdp, gamma, r, horizon, temperature=1, threshold=1e-10):
                 V = V - np.amin(V)
 
         return policies[::-1]
+
+
+def evaluate_policy(mdp, policy, start, gamma, r, horizon):
+    """Expected reward from the policy."""
+    V = r
+    for t in range(horizon-2, -1, -1):
+        future_values = mdp.T_matrix.dot(V).reshape((mdp.nS, mdp.nA))
+        Q = np.expand_dims(r, axis=1) + gamma * future_values
+        V = np.sum(policy[t] * Q, axis=1)
+    return V[start]

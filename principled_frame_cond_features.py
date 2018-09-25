@@ -91,7 +91,7 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
 
     for i in range(epochs):
         # Compute the Boltzmann rational policy \pi_{s,a} = \exp(Q_{s,a} - V_s)
-        policy = value_iter(mdp, 1, mdp.f_matrix @ r_vec, horizon-1, temp)
+        policy = value_iter(mdp, 1, mdp.f_matrix @ r_vec, horizon, temp)
 
         # Compute the gradient
         d_last_step, d_last_step_list = compute_d_last_step(mdp, policy, p_0, horizon, return_all=True)
