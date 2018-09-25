@@ -17,6 +17,7 @@ class Env(object):
         """
         P = {}
         T_matrix = lil_matrix((nS * nA, nS))
+        baseline_matrix = lil_matrix((nS, nS))
         actions = list(actions_iter)
         for state in states_iter:
             state_id = self.get_num_from_state(state)
@@ -28,9 +29,12 @@ class Env(object):
                 state_action_index = state_id * nA + action
                 for prob, next_state_id, _ in next_s:
                     T_matrix[state_action_index, next_state_id] = prob
+                    if action == self.default_action:
+                        baseline_matrix[state_id, next_state_id] = prob
         self.P = P
         self.T_matrix = T_matrix.tocsr()
         self.T_matrix_transpose = T_matrix.transpose().tocsr()
+        self.baseline_matrix_transpose = baseline_matrix.transpose().tocsr()
 
 
     def make_f_matrix(self, nS, num_features):

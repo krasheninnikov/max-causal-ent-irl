@@ -55,6 +55,7 @@ class RoomEnv(DeterministicEnv):
         self.carpet_locations = set(spec.carpet_locations)
         self.feature_locations = list(spec.feature_locations)
 
+        self.default_action = Direction.get_number_from_direction(Direction.STAY)
         self.nA = 5
         self.num_features = len(self.s_to_f(self.init_state))
 

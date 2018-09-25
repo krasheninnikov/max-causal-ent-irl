@@ -64,6 +64,7 @@ class ApplesEnv(Env):
         self.num_trees = len(self.tree_locations)
         self.num_buckets = len(self.bucket_locations)
 
+        self.default_action = Direction.get_number_from_direction(Direction.STAY)
         self.nA = 6
         self.num_features = len(self.s_to_f(self.init_state))
 

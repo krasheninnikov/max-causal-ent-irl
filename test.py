@@ -21,28 +21,31 @@ from envs.utils import unique_perm, zeros_with_ones, printoptions
 
 from sampling_one_s_mceirl import policy_walk_last_state_prob
 from principled_frame_cond_features import om_method, norm_distr, laplace_distr
-from relative_reachability import relative_reachability_penalty, stochastic_relative_reachability_penalty
+from relative_reachability import relative_reachability_penalty
 
-from value_iter import value_iter
+from value_iter import value_iter, evaluate_policy
 
 
 def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
-               current_s=None, weight=1, penalize_deviation=False,
+               current_s_num=None, weight=1, penalize_deviation=False,
                relative_reachability=False, print_level=1):
     '''Given an env and R, runs soft VI for h steps and rolls out the resulting policy'''
-
+    current_state = env.get_state_from_num(current_s_num)
     r_s = env.f_matrix @ r_planning
+    time_dependent_reward = False
+
     if penalize_deviation:
-        diff = env.f_matrix - env.s_to_f(env.get_state_from_num(current_s)).T
+        diff = env.f_matrix - env.s_to_f(current_state).T
         r_s -= weight * np.linalg.norm(diff, axis=1)
     if relative_reachability:
-        r_r = relative_reachability_penalty(env, h, env.s)
-        r_s -= weight * r_r
+        time_dependent_reward = True
+        r_r = relative_reachability_penalty(env, h, current_s_num)
+        r_s = np.expand_dims(r_s, 0) - weight * r_r
 
     # For evaluation, plan optimally instead of Boltzmann-rationally
-    policies = value_iter(env, 1, r_s, h, temperature=None)
+    policies = value_iter(env, 1, r_s, h, temperature=None, time_dependent_reward=time_dependent_reward)
 
-    env.reset(env.get_state_from_num(current_s))
+    env.reset(current_state)
     if print_level >= 1:
         print("Executing the policy from state:")
         env.print_state(env.s); print()
@@ -50,16 +53,16 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
     total_reward = 0
     if print_level >= 1:
         print('Last {} of the {} rolled out steps:'.format(last_steps_printed, h))
-    for i in range(h):
+    for i in range(h-1):
         a = np.random.choice(env.nA, p=policies[i][env.get_num_from_state(env.s),:])
         obs, reward, done, info = env.step(a, r_vec=r_true)
         total_reward += reward
 
-        if print_level >= 1 and i>=(h-last_steps_printed):
+        if print_level >= 1 and i>=(h-last_steps_printed-1):
             env.print_state(env.s)
             print()
 
-    return total_reward
+    return evaluate_policy(env, policies, current_s_num, 1, env.f_matrix @ r_true, h)
 
 PROBLEMS = {
     'room': ROOM_PROBLEMS,
@@ -166,16 +169,16 @@ def experiment_wrapper(env_name='vases',
         r_final = r_task
         if r_inferred is not None:
             r_final = r_task + inferred_weight * r_inferred
-        true_reward_obtained = forward_rl(env, r_final, r_true, h=evaluation_horizon, current_s=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
+        true_reward_obtained = forward_rl(env, r_final, r_true, h=evaluation_horizon, current_s_num=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
     elif combination_algorithm == "use_prior":
         assert r_inferred is not None
         assert (not deviation) and (not reachability)
         r_final = r_inferred
-        true_reward_obtained = forward_rl(env, r_final, r_true, h=evaluation_horizon, current_s=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
+        true_reward_obtained = forward_rl(env, r_final, r_true, h=evaluation_horizon, current_s_num=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
     else:
         raise ValueError('Unknown combination algorithm: {}'.format(combination_algorithm))
 
-    best_possible_reward = forward_rl(env, r_true, r_true, h=evaluation_horizon, current_s=s_current, print_level=0)
+    best_possible_reward = forward_rl(env, r_true, r_true, h=evaluation_horizon, current_s_num=s_current, print_level=0)
 
     def get_measure(measure):
         if measure == 'final_reward':

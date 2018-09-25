@@ -26,7 +26,7 @@ def policy_walk_last_state_prob(
         return np.log(d_last_step[s_current])
 
     def log_probability(r_vec, verbose=False):
-        pi = value_iter(env, gamma, env.f_matrix @ r_vec, h-1, temp)
+        pi = value_iter(env, gamma, env.f_matrix @ r_vec, h, temp)
         log_p = log_last_step_om(pi)
 
         log_prior = 0

@@ -32,6 +32,7 @@ class BoxesEnv(DeterministicEnv):
         self.spec = spec
         self.init_state = deepcopy(spec.init_state)
 
+        self.default_action = 4  # Direction.STAY
         self.nA = 5
 
         self.nF = 4
