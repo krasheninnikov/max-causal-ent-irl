@@ -14,6 +14,9 @@ from envs.side_effects_spec import BOXES_PROBLEMS
 from envs.room import RoomEnv, RoomState
 from envs.room_spec import ROOM_PROBLEMS
 
+from envs.train import TrainEnv, TrainState
+from envs.train_spec import TRAIN_PROBLEMS
+
 from envs.apples import ApplesEnv, ApplesState
 from envs.apples_spec import APPLES_PROBLEMS
 
@@ -68,14 +71,16 @@ PROBLEMS = {
     'room': ROOM_PROBLEMS,
     'vases': VASES_PROBLEMS,
     'apples': APPLES_PROBLEMS,
-    'boxes': BOXES_PROBLEMS
+    'boxes': BOXES_PROBLEMS,
+    'train': TRAIN_PROBLEMS
 }
 
 ENV_CLASSES = {
     'room': RoomEnv,
     'vases': VasesGrid,
     'apples': ApplesEnv,
-    'boxes': BoxesEnv
+    'boxes': BoxesEnv,
+    'train': TrainEnv
 }
 
 def get_problem_parameters(env_name, problem_name):
@@ -196,7 +201,7 @@ def experiment_wrapper(env_name='vases',
 # file summarizing the results.
 PARAMETERS = [
     ('-e', '--env_name', 'room', None,
-     'Environment to run: one of [vases, boxes, room]'),
+     'Environment to run: one of [vases, boxes, room, apples, train]'),
     ('-p', '--problem_spec', 'simple', None,
      'The name of the problem specification to solve.'),
     ('-i', '--inference_algorithm', 'pass', None,
