@@ -220,7 +220,7 @@ PARAMETERS = [
      'Learning rate for gradient descent. Applies when inference_algorithm is mceirl.'),
     ('-w', '--inferred_weight', '1', float,
      'Weight for the inferred reward when adding task and inferred rewards. Applies if combination_algorithm is add_rewards.'),
-    ('-m', '--epochs', '500', int,
+    ('-m', '--epochs', '50', int,
      'Number of gradient descent steps to take.'),
     ('-u', '--uniform_prior', 'False', lambda x: x != 'False',
      'Whether to use a uniform prior over initial states, or to know the initial state. Either true or false.'),
