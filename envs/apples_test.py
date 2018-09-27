@@ -25,6 +25,7 @@ class TestApplesSpec(object):
         # Use a power of 2, to avoid rounding issues
         self.apple_regen_probability = 1.0 / 4
         self.bucket_capacity = 10
+        self.include_location_features = True
 
 
 class TestApplesEnv(unittest.TestCase):

@@ -119,7 +119,7 @@ class TrainEnv(DeterministicEnv):
         '''
         num_broken_vases = list(s.vase_states.values()).count(False)
         carpet_feature = int(s.agent_pos in self.carpet_locations)
-        train_intact_feature = int(s.train_intact)
+        train_intact_feature = int(not s.train_intact)
         train_pos_features = [int(s.train_pos == pos) for pos in self.train_locations]
         loc_features = [int(s.agent_pos == fpos) for fpos in self.feature_locations]
         features = train_pos_features + loc_features

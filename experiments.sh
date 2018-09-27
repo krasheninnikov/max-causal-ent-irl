@@ -1,8 +1,8 @@
 # Room environment, MCEIRL vs. sampling vs. baselines
-pythonw test.py -e room -p default -c add_rewards -i mceirl -d true_reward,final_reward -s 0,1,2,3,4 -H 5
-pythonw test.py -e room -p default -c add_rewards -i sampling -d true_reward,final_reward -s 0,1,2,3,4 -H 5
-pythonw test.py -e room -p default -c add_rewards -i deviation -d true_reward,final_reward -H 5 -w 0.5
-pythonw test.py -e room -p default -c add_rewards -i reachability -d true_reward,final_reward -H 5
+pythonw test.py -e room -p default -c add_rewards -i mceirl -d true_reward,final_reward -s 0,1,2,3,4 -H 7
+pythonw test.py -e room -p default -c add_rewards -i sampling -d true_reward,final_reward -s 0,1,2,3,4 -H 7
+pythonw test.py -e room -p default -c add_rewards -i deviation -d true_reward,final_reward -H 7 -w 0.5
+pythonw test.py -e room -p default -c add_rewards -i reachability -d true_reward,final_reward -H 7
 
 # Room environment, same thing, but using a prior
 pythonw test.py -e room -p default -c use_prior -i mceirl -d true_reward,final_reward -s 0,1,2,3,4 -H 5
@@ -27,10 +27,10 @@ pythonw test.py -e train -p default -c add_rewards -i deviation -d true_reward,f
 pythonw test.py -e train -p default -c add_rewards -i reachability -d true_reward,final_reward -H 8
 
 # Apples environment, MCEIRL vs. sampling vs. baselines. Reachability won't work.
-pythonw test.py -e apples -p default -c add_rewards -i mceirl -d true_reward,final_reward -s 0,1,2,3,4 -H 10
-pythonw test.py -e apples -p default -c add_rewards -i sampling -d true_reward,final_reward -s 0,1,2,3,4 -H 10
-pythonw test.py -e apples -p default -c add_rewards -i deviation -d true_reward,final_reward -H 10 -w 0.5
-pythonw test.py -e apples -p default -c add_rewards -i reachability -d true_reward,final_reward -H 10
+pythonw test.py -e apples -p default -c add_rewards -i mceirl -d true_reward,final_reward -s 0,1,2,3,4 -H 11
+pythonw test.py -e apples -p default -c add_rewards -i sampling -d true_reward,final_reward -s 0,1,2,3,4 -H 11
+pythonw test.py -e apples -p default -c add_rewards -i deviation -d true_reward,final_reward -H 11 -w 0.5
+pythonw test.py -e apples -p default -c add_rewards -i reachability -d true_reward,final_reward -H 11
 
 # Long horizon apples?
 pythonw test.py -e apples -p default -c add_rewards -i mceirl -d true_reward,final_reward -s 0,1,2,3,4 -H 20

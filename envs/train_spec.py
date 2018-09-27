@@ -19,16 +19,16 @@ class TrainSpec(object):
 
 TRAIN_PROBLEMS = {
     # -------
-    # |  G  |
+    # |  G C|
     # |  TT |
-    # |CVTTG|
-    # |  V  |
+    # | VTTG|
+    # |     |
     # |A    |
     # -------
     'default': (
         TrainSpec(5, 5,
-                  TrainState((0, 4), {(1, 2): True, (2, 3): True}, (2, 1), True),
-                  [(0, 2)],
+                  TrainState((0, 4), {(1, 2): True}, (2, 1), True),
+                  [(4, 0)],
                   [(2, 0), (4, 2)],
                   {
                       (2, 1): (3, 1),
@@ -36,8 +36,8 @@ TRAIN_PROBLEMS = {
                       (3, 2): (2, 2),
                       (2, 2): (2, 1)
                   }),
-        TrainState((2, 0), {(1, 2): True, (2, 3): True}, (2, 2), True),
+        TrainState((2, 0), {(1, 2): True}, (2, 2), True),
         np.array([0, 0, 0, 0, 0, 0, 0, 0, 1]),
-        np.array([-1, 0, 1, 0, 0, 0, 0, 0, 1])
+        np.array([-1, 0, -1, 0, 0, 0, 0, 0, 1])
     )
 }

@@ -53,6 +53,7 @@ class ApplesEnv(Env):
         self.apple_regen_probability = spec.apple_regen_probability
         self.bucket_capacity = spec.bucket_capacity
         self.init_state = deepcopy(spec.init_state)
+        self.include_location_features = spec.include_location_features
 
         self.tree_locations = list(self.init_state.tree_states.keys())
         self.bucket_locations = list(self.init_state.bucket_states.keys())
@@ -121,8 +122,9 @@ class ApplesEnv(Env):
         num_tree_apples = sum(map(int, s.tree_states.values()))
         carrying_apple = int(s.carrying_apple)
         agent_pos = s.agent_pos[1], s.agent_pos[2]  # Drop orientation
-        features = [int(agent_pos == pos) for pos in self.possible_agent_locations]
-        features = [num_bucket_apples, num_tree_apples, carrying_apple] + features
+        features = [num_bucket_apples, num_tree_apples, carrying_apple]
+        if self.include_location_features:
+            features = features + [int(agent_pos == pos) for pos in self.possible_agent_locations]
         return np.array(features)
 
 
@@ -156,7 +158,7 @@ class ApplesEnv(Env):
                 # If we're facing a bucket, it goes there
                 if obj_pos in new_bucket_states:
                     prev_apples = new_bucket_states[obj_pos]
-                    new_bucket_states[obj_pos] = min(prev_apples + 1, 10)
+                    new_bucket_states[obj_pos] = min(prev_apples + 1, self.bucket_capacity)
             elif obj_pos in new_tree_states and new_tree_states[obj_pos]:
                 new_carrying_apple = True
                 new_tree_states[obj_pos] = False
