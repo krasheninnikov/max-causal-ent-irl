@@ -21,20 +21,24 @@ APPLES_PROBLEMS = {
     # -----
     # |T T|
     # |   |
-    # |AB |
+    # | B |
+    # |   |
+    # |A T|
     # -----
-    # After 10 timesteps, it looks like this:
+    # After 11 actions (riuiruuildi), it looks like this:
     # -----
     # |T T|
     # | A |
     # | B |
+    # |   |
+    # |  T|
     # -----
-    # Where the agent has picked both trees once and put the fruit in the
+    # Where the agent has picked the right trees once and put the fruit in the
     # basket.
     'default': (
-        ApplesSpec(3, 3,
+        ApplesSpec(5, 3,
                    ApplesState(agent_pos=(0, 0, 2),
-                               tree_states={(0, 0): True, (2, 0): True},
+                               tree_states={(0, 0): True, (2, 0): True, (2, 4): True},
                                bucket_states={(1, 2): 0},
                                carrying_apple=False),
                    apple_regen_probability = 0.1,
@@ -42,10 +46,10 @@ APPLES_PROBLEMS = {
                    include_location_features=True),
         ApplesState(agent_pos=(Direction.get_number_from_direction(Direction.SOUTH),
                                1, 1),
-                    tree_states={(0, 0): True, (2, 0): False},
+                    tree_states={(0, 0): True, (2, 0): False, (2, 4): True},
                     bucket_states={(1, 2): 2},
                     carrying_apple=False),
-        np.array([0, 0, 0, 0, 0, 0, 0, 0, 0]),
-        np.array([1, 0, 0, 0, 0, 0, 0, 0, 0])
+        np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+        np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     )
 }
