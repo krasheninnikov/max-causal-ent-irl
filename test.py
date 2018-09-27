@@ -17,6 +17,9 @@ from envs.room_spec import ROOM_PROBLEMS
 from envs.train import TrainEnv, TrainState
 from envs.train_spec import TRAIN_PROBLEMS
 
+from envs.batteries import BatteriesEnv, BatteriesState
+from envs.batteries_spec import BATTERIES_PROBLEMS
+
 from envs.apples import ApplesEnv, ApplesState
 from envs.apples_spec import APPLES_PROBLEMS
 
@@ -55,7 +58,7 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
 
     total_reward = 0
     if print_level >= 1:
-        print('Last {} of the {} rolled out steps:'.format(last_steps_printed, h))
+        print('Last {} of the {} rolled out steps:'.format(last_steps_printed, h-1))
     for i in range(h-1):
         a = np.random.choice(env.nA, p=policies[i][env.get_num_from_state(env.s),:])
         obs, reward, done, info = env.step(a, r_vec=r_true)
@@ -72,7 +75,8 @@ PROBLEMS = {
     'vases': VASES_PROBLEMS,
     'apples': APPLES_PROBLEMS,
     'boxes': BOXES_PROBLEMS,
-    'train': TRAIN_PROBLEMS
+    'train': TRAIN_PROBLEMS,
+    'batteries': BATTERIES_PROBLEMS
 }
 
 ENV_CLASSES = {
@@ -80,7 +84,8 @@ ENV_CLASSES = {
     'vases': VasesGrid,
     'apples': ApplesEnv,
     'boxes': BoxesEnv,
-    'train': TrainEnv
+    'train': TrainEnv,
+    'batteries': BatteriesEnv
 }
 
 def get_problem_parameters(env_name, problem_name):
@@ -201,7 +206,7 @@ def experiment_wrapper(env_name='vases',
 # file summarizing the results.
 PARAMETERS = [
     ('-e', '--env_name', 'room', None,
-     'Environment to run: one of [vases, boxes, room, apples, train]'),
+     'Environment to run: one of [vases, boxes, room, apples, train, batteries]'),
     ('-p', '--problem_spec', 'simple', None,
      'The name of the problem specification to solve.'),
     ('-i', '--inference_algorithm', 'pass', None,
