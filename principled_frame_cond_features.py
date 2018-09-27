@@ -71,15 +71,23 @@ def compute_d_last_step(mdp, policy, p_0, T, gamma=1, verbose=False, return_all=
 
 def compute_g_deterministic(mdp, policy, p_0, T, d_last_step_list, feature_matrix):
     # base case
-    G = np.zeros((mdp.nS, feature_matrix.shape[1]))
+    G = np.expand_dims(p_0, axis=1) * feature_matrix
 
     # recursive case
     for t in range(T-1):
-        # G(s') = \sum_{s, a} p(a | s) p(s' | s, a) [ d_last_step_list[t] feature_matrix[s] + G_prev[s] ]
-        tmp = np.expand_dims(d_last_step_list[t], axis=1) * feature_matrix + G
-        tmp = np.expand_dims(policy[t], axis=-1) * np.expand_dims(tmp, axis=1)
-        tmp = tmp.reshape((mdp.nS * mdp.nA), mdp.num_features)
-        G = mdp.T_matrix_transpose.dot(tmp)
+        # G(s') = \sum_{s, a} p(a | s) p(s' | s, a) [ d_last_step_list[t] feature_matrix[s'] + G_prev[s] ]
+        # Distribute the addition to get two different terms
+        G_first = np.expand_dims(d_last_step_list[t], axis=1) * policy[t]
+        G_first = G_first.reshape((mdp.nS * mdp.nA,))
+        G_first = mdp.T_matrix_transpose.dot(G_first)
+        G_first = np.expand_dims(G_first, axis=1) * feature_matrix
+
+        G_second = np.expand_dims(policy[t], axis=-1) * np.expand_dims(G, axis=1)
+        G_second = G_second.reshape((mdp.nS * mdp.nA, mdp.num_features))
+        G_second = mdp.T_matrix_transpose.dot(G_second)
+
+        G = G_first + G_second
+
     return G
 
 
@@ -93,18 +101,21 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
         # Compute the Boltzmann rational policy \pi_{s,a} = \exp(Q_{s,a} - V_s)
         policy = value_iter(mdp, 1, mdp.f_matrix @ r_vec, horizon, temp)
 
+        d_last_step, d_last_step_list = compute_d_last_step(
+            mdp, policy, p_0, horizon, return_all=True)
+        if d_last_step[s_current] == 0:
+            print('Error in om_method: No feasible trajectories!')
+            return r_vec
+
+        feature_expectations = sum(d_last_step_list) @ mdp.f_matrix
+
+        G = compute_g_deterministic(
+            mdp, policy, p_0, horizon, d_last_step_list, mdp.f_matrix)
+
         # Compute the gradient
-        d_last_step, d_last_step_list = compute_d_last_step(mdp, policy, p_0, horizon, return_all=True)
-        G = compute_g_deterministic(mdp, policy, p_0, horizon, d_last_step_list, mdp.f_matrix)
-        d_T_step = sum(d_last_step_list)
-
-        g_div_d_last_step = np.zeros(mdp.f_matrix.shape[1])
-        if d_last_step[s_current]!=0:
-            g_div_d_last_step = G[s_current] / d_last_step[s_current]
-
         s_current_vec = np.zeros(mdp.nS)
         s_current_vec[s_current] = 1
-        dL_dr_vec = g_div_d_last_step.flatten() + (s_current_vec - d_T_step) @ mdp.f_matrix
+        dL_dr_vec = G[s_current] / d_last_step[s_current] - feature_expectations
 
         # Gradient of the prior
         if r_prior!= None: dL_dr_vec += r_prior.logdistr_grad(r_vec)
