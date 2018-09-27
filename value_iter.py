@@ -67,7 +67,16 @@ def value_iter(mdp, gamma, r, horizon, temperature=1, threshold=1e-10, time_depe
                 V = softmax(Q, temperature)
                 policy = expt(Q - np.expand_dims(V, axis=1))
 
+
             policies.append(policy)
+
+            if gamma==1:
+                # When \gamma=1, the backup operator is equivariant under adding
+                # a constant to all entries of V, so we can translate min(V)
+                # to be 0 at each step of the softmax value iteration without
+                # changing the policy it converges to, and this fixes the problem
+                # where log(nA) keep getting added at each iteration.
+                V = V - np.amin(V)
 
         return policies[::-1]
 
