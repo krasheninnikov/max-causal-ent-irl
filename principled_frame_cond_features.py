@@ -82,7 +82,7 @@ def compute_g_deterministic(mdp, policy, p_0, T, d_last_step_list, feature_matri
     return G
 
 
-def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2, r_prior=None, r_vec=None, threshold=1e-3, check_grad_flag=False):
+def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2, r_prior=None, r_vec=None, threshold=1e-3, check_grad_flag=True):
     '''Modified MaxCausalEnt that maximizes last step occupancy measure for the current state'''
 
     def compute_grad(r_vec):
@@ -138,6 +138,7 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
 
         if np.linalg.norm(dL_dr_vec) < threshold:
             if check_grad_flag:
+                print()
                 print('Max grad error: {}'.format(np.amax(np.asarray(grad_error_list))))
                 print('Median grad error: {}'.format(np.median(np.asarray(grad_error_list))))
             break
