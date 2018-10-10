@@ -1,15 +1,9 @@
 import numpy as np
 from scipy.stats import norm, laplace
+from scipy.optimize import check_grad
 
 from value_iter import value_iter
 from envs.utils import unique_perm, zeros_with_ones, printoptions
-
-def grad_gaussian_prior(theta, theta_spec, sigma=1):
-    return -(theta-theta_spec)/(sigma**2)
-
-
-def grad_laplace_prior(theta, theta_spec, b=1):
-    return (theta_spec-theta)/(np.fabs(theta-theta_spec)*b)
 
 
 class norm_distr(object):
@@ -52,8 +46,6 @@ class laplace_distr(object):
         return (self.mu-x)/(np.fabs(x-self.mu)*self.b)
 
 
-
-
 def compute_d_last_step(mdp, policy, p_0, T, gamma=1, verbose=False, return_all=False):
     '''Computes the last-step occupancy measure'''
     D, d_last_step_list = p_0, [p_0]
@@ -66,7 +58,6 @@ def compute_d_last_step(mdp, policy, p_0, T, gamma=1, verbose=False, return_all=
         if return_all: d_last_step_list.append(D)
 
     return (D, d_last_step_list) if return_all else D
-
 
 
 def compute_g_deterministic(mdp, policy, p_0, T, d_last_step_list, feature_matrix):
@@ -91,13 +82,10 @@ def compute_g_deterministic(mdp, policy, p_0, T, d_last_step_list, feature_matri
     return G
 
 
-def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2, r_prior=None, r_vec=None, threshold=1e-3):
+def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2, r_prior=None, r_vec=None, threshold=1e-3, check_grad_flag=False):
     '''Modified MaxCausalEnt that maximizes last step occupancy measure for the current state'''
-    if r_vec is None:
-        r_vec = 0.01*np.random.randn(mdp.f_matrix.shape[1])
-    print('Initial reward vector: {}'.format(r_vec))
 
-    for i in range(epochs):
+    def compute_grad(r_vec):
         # Compute the Boltzmann rational policy \pi_{s,a} = \exp(Q_{s,a} - V_s)
         policy = value_iter(mdp, 1, mdp.f_matrix @ r_vec, horizon, temp)
 
@@ -111,16 +99,35 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
 
         G = compute_g_deterministic(
             mdp, policy, p_0, horizon, d_last_step_list, mdp.f_matrix)
-
         # Compute the gradient
-        s_current_vec = np.zeros(mdp.nS)
-        s_current_vec[s_current] = 1
         dL_dr_vec = G[s_current] / d_last_step[s_current] - feature_expectations
-
         # Gradient of the prior
         if r_prior!= None: dL_dr_vec += r_prior.logdistr_grad(r_vec)
 
+        return dL_dr_vec
+
+    def compute_log_likelihood(r_vec):
+        policy = value_iter(mdp, 1, mdp.f_matrix @ r_vec, horizon, temp)
+
+        d_last_step, d_last_step_list = compute_d_last_step(
+            mdp, policy, p_0, horizon, return_all=True)
+
+        log_likelihood = np.log(d_last_step[s_current])
+        if r_prior!= None: log_likelihood += np.sum(r_prior.logpdf(r_vec))
+        return log_likelihood
+
+    if r_vec is None:
+        r_vec = 0.01*np.random.randn(mdp.f_matrix.shape[1])
+    print('Initial reward vector: {}'.format(r_vec))
+
+    if check_grad_flag: grad_error_list=[]
+
+    for i in range(epochs):
+        if check_grad_flag:
+            grad_error_list.append(check_grad(compute_log_likelihood, compute_grad, r_vec))
+
         # Gradient ascent
+        dL_dr_vec = compute_grad(r_vec)
         r_vec = r_vec + learning_rate * dL_dr_vec
 
         if i%1==0:
@@ -128,6 +135,7 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
                 print('Epoch {}; Reward vector: {}'.format(i, r_vec))
 
         if np.linalg.norm(dL_dr_vec) < threshold:
+            if check_grad_flag: print('Max grad error: {}'.format(np.amax(np.asarray(grad_error_list))))
             break
 
     return r_vec
