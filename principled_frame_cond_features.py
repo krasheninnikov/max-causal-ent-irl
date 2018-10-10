@@ -82,7 +82,7 @@ def compute_g_deterministic(mdp, policy, p_0, T, d_last_step_list, feature_matri
     return G
 
 
-def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2, r_prior=None, r_vec=None, threshold=1e-3, check_grad_flag=True):
+def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2, r_prior=None, r_vec=None, threshold=1e-3, check_grad_flag=False):
     '''The RLSP algorithm'''
 
     def compute_grad(r_vec):
