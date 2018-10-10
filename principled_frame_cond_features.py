@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.stats import norm, laplace
-from scipy.optimize import check_grad
+from scipy.optimize import check_grad, approx_fprime
 
 from value_iter import value_iter
 from envs.utils import unique_perm, zeros_with_ones, printoptions
@@ -82,8 +82,8 @@ def compute_g_deterministic(mdp, policy, p_0, T, d_last_step_list, feature_matri
     return G
 
 
-def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2, r_prior=None, r_vec=None, threshold=1e-3, check_grad_flag=False):
-    '''Modified MaxCausalEnt that maximizes last step occupancy measure for the current state'''
+def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2, r_prior=None, r_vec=None, threshold=1e-3, check_grad_flag=True):
+    '''The RLSP algorithm'''
 
     def compute_grad(r_vec):
         # Compute the Boltzmann rational policy \pi_{s,a} = \exp(Q_{s,a} - V_s)
@@ -108,14 +108,16 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
 
     def compute_log_likelihood(r_vec):
         policy = value_iter(mdp, 1, mdp.f_matrix @ r_vec, horizon, temp)
-
         d_last_step, d_last_step_list = compute_d_last_step(
-            mdp, policy, p_0, horizon, return_all=True)
-
+                    mdp, policy, p_0, horizon, return_all=True)
         log_likelihood = np.log(d_last_step[s_current])
         if r_prior!= None: log_likelihood += np.sum(r_prior.logpdf(r_vec))
 
         return log_likelihood
+
+    def get_grad(_):
+        "dummy function for use with check_grad()"
+        return dL_dr_vec
 
     if r_vec is None:
         r_vec = 0.01*np.random.randn(mdp.f_matrix.shape[1])
@@ -124,11 +126,13 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
     if check_grad_flag: grad_error_list=[]
 
     for i in range(epochs):
+        dL_dr_vec = compute_grad(r_vec)
         if check_grad_flag:
-            grad_error_list.append(check_grad(compute_log_likelihood, compute_grad, r_vec))
+            #grad_error_list.append(np.sqrt(sum((dL_dr_vec - approx_fprime(r_vec, compute_log_likelihood, 1e-5))**2)))
+            #grad_error_list.append(check_grad(compute_log_likelihood, compute_grad, r_vec))
+            grad_error_list.append(check_grad(compute_log_likelihood, get_grad, r_vec))
 
         # Gradient ascent
-        dL_dr_vec = compute_grad(r_vec)
         r_vec = r_vec + learning_rate * dL_dr_vec
 
         if i%1==0:
