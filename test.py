@@ -249,7 +249,7 @@ PARAMETERS = [
     ('-v', '--print_level', '1', int,
      'Level of verbosity.'),
      ('-f', '--forward_rl_temp', '0.0', float,
-      'Boltzmann rationality constant for the robot (for forward_rl)'),
+      'Boltzmann rationality constant for the robot in forward_rl evaluation; value 0 corresponds to a fully rational robot'),
 ]
 
 # Writing output for experiments

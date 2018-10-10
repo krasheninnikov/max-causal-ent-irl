@@ -114,6 +114,7 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
 
         log_likelihood = np.log(d_last_step[s_current])
         if r_prior!= None: log_likelihood += np.sum(r_prior.logpdf(r_vec))
+
         return log_likelihood
 
     if r_vec is None:
@@ -133,9 +134,12 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
         if i%1==0:
             with printoptions(precision=4, suppress=True):
                 print('Epoch {}; Reward vector: {}'.format(i, r_vec))
+                if check_grad_flag: print('grad error: {}'.format(grad_error_list[-1]))
 
         if np.linalg.norm(dL_dr_vec) < threshold:
-            if check_grad_flag: print('Max grad error: {}'.format(np.amax(np.asarray(grad_error_list))))
+            if check_grad_flag:
+                print('Max grad error: {}'.format(np.amax(np.asarray(grad_error_list))))
+                print('Median grad error: {}'.format(np.median(np.asarray(grad_error_list))))
             break
 
     return r_vec
