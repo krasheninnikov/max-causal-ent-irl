@@ -55,7 +55,7 @@ def value_iter(mdp, gamma, r, horizon, temperature=1, threshold=1e-10, time_depe
             future_values = mdp.T_matrix.dot(V).reshape((nS, nA))
             Q = np.expand_dims(r[t], axis=1) + gamma * future_values
 
-            if temperature is None:
+            if temperature==0:
                 V = Q.max(axis=1)
                 # Argmax to find the action number, then index into np.eye to
                 # one hot encode. Note this will deterministically break ties

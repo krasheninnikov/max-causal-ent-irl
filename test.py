@@ -32,7 +32,7 @@ from relative_reachability import relative_reachability_penalty
 from value_iter import value_iter, evaluate_policy
 
 
-def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
+def forward_rl(env, r_planning, r_true, h=40, temp=0, last_steps_printed=3,
                current_s_num=None, weight=1, penalize_deviation=False,
                relative_reachability=False, print_level=1):
     '''Given an env and R, runs soft VI for h steps and rolls out the resulting policy'''
@@ -49,7 +49,7 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
         r_s = np.expand_dims(r_s, 0) - weight * r_r
 
     # For evaluation, plan optimally instead of Boltzmann-rationally
-    policies = value_iter(env, 1, r_s, h, temperature=None, time_dependent_reward=time_dependent_reward)
+    policies = value_iter(env, 1, r_s, h, temperature=temp, time_dependent_reward=time_dependent_reward)
 
     env.reset(current_state)
     if print_level >= 1:
@@ -128,7 +128,8 @@ def experiment_wrapper(env_name='vases',
                        step_size=.01,
                        seed=0,
                        std=0.5,
-                       print_level=1):
+                       print_level=1,
+                       forward_rl_temp=0):
     # Check the parameters so that we fail fast
     assert inference_algorithm in ['mceirl', 'sampling', 'deviation', 'reachability', 'pass']
     assert combination_algorithm in ['add_rewards', 'use_prior']
@@ -183,16 +184,16 @@ def experiment_wrapper(env_name='vases',
         r_final = r_task
         if r_inferred is not None:
             r_final = r_task + inferred_weight * r_inferred
-        true_reward_obtained = forward_rl(env, r_final, r_true, h=evaluation_horizon, current_s_num=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
+        true_reward_obtained = forward_rl(env, r_final, r_true, temp=forward_rl_temp, h=evaluation_horizon, current_s_num=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
     elif combination_algorithm == "use_prior":
         assert r_inferred is not None
         assert (not deviation) and (not reachability)
         r_final = r_inferred
-        true_reward_obtained = forward_rl(env, r_final, r_true, h=evaluation_horizon, current_s_num=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
+        true_reward_obtained = forward_rl(env, r_final, r_true, temp=forward_rl_temp, h=evaluation_horizon, current_s_num=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
     else:
         raise ValueError('Unknown combination algorithm: {}'.format(combination_algorithm))
 
-    best_possible_reward = forward_rl(env, r_true, r_true, h=evaluation_horizon, current_s_num=s_current, print_level=0)
+    best_possible_reward = forward_rl(env, r_true, r_true, temp=forward_rl_temp, h=evaluation_horizon, current_s_num=s_current, print_level=0)
 
     def get_measure(measure):
         if measure == 'final_reward':
@@ -246,7 +247,9 @@ PARAMETERS = [
     ('-k', '--std', '0.5', float,
      'Standard deviation for the prior'),
     ('-v', '--print_level', '1', int,
-     'Level of verbosity.')
+     'Level of verbosity.'),
+     ('-f', '--forward_rl_temp', '0.0', float,
+      'Boltzmann rationality constant for the robot (for forward_rl)'),
 ]
 
 # Writing output for experiments
