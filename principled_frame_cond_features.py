@@ -60,7 +60,7 @@ def compute_d_last_step(mdp, policy, p_0, T, gamma=1, verbose=False, return_all=
     return (D, d_last_step_list) if return_all else D
 
 
-def compute_g_deterministic(mdp, policy, p_0, T, d_last_step_list, feature_matrix):
+def compute_g(mdp, policy, p_0, T, d_last_step_list, feature_matrix):
     # base case
     G = np.expand_dims(p_0, axis=1) * feature_matrix
 
@@ -82,8 +82,46 @@ def compute_g_deterministic(mdp, policy, p_0, T, d_last_step_list, feature_matri
     return G
 
 
-def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2, r_prior=None, r_vec=None, threshold=1e-3, check_grad_flag=False):
+def compute_f(mdp, policy, p_0, s_current, horizon):
+    '''second term of the RLSP gradient'''
+    F = np.zeros(mdp.f_matrix.shape[1], dtype='float64')
+    # TODO make a function to compute d_last_step_list for many different s_0
+    # in parallel, and replace the for loop below with matrix multiplication
+    for s_0 in np.nonzero(p_0)[0]:
+        s_0_vec = np.zeros(mdp.nS)
+        s_0_vec[s_0]=1
+
+        d_last_step, d_last_step_list = compute_d_last_step(mdp, policy, s_0_vec, horizon, return_all=True)
+        if d_last_step[s_current] == 0:
+            continue
+
+        feature_expectations = sum(d_last_step_list) @ mdp.f_matrix
+
+        F += p_0[s_0] * d_last_step[s_current] * feature_expectations
+    return F
+
+
+def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
+              r_prior=None, r_vec=None, threshold=1e-3, check_grad_flag=False):
     '''The RLSP algorithm'''
+    def compute_grad_new(r_vec):
+        # Compute the Boltzmann rational policy \pi_{s,a} = \exp(Q_{s,a} - V_s)
+        policy = value_iter(mdp, 1, mdp.f_matrix @ r_vec, horizon, temp)
+
+        d_last_step, d_last_step_list = compute_d_last_step(
+            mdp, policy, p_0, horizon, return_all=True)
+        if d_last_step[s_current] == 0:
+            print('Error in om_method: No feasible trajectories!')
+            return r_vec
+        G = compute_g(mdp, policy, p_0, horizon, d_last_step_list, mdp.f_matrix)
+
+        F = compute_f(mdp, policy, p_0, s_current, horizon)
+        # Compute the gradient
+        dL_dr_vec = (G[s_current]  - F)/ d_last_step[s_current]
+        # Gradient of the prior
+        if r_prior!= None: dL_dr_vec += r_prior.logdistr_grad(r_vec)
+
+        return dL_dr_vec
 
     def compute_grad(r_vec):
         # Compute the Boltzmann rational policy \pi_{s,a} = \exp(Q_{s,a} - V_s)
@@ -97,7 +135,7 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
 
         feature_expectations = sum(d_last_step_list) @ mdp.f_matrix
 
-        G = compute_g_deterministic(
+        G = compute_g(
             mdp, policy, p_0, horizon, d_last_step_list, mdp.f_matrix)
         # Compute the gradient
         dL_dr_vec = G[s_current] / d_last_step[s_current] - feature_expectations
@@ -126,7 +164,7 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
     if check_grad_flag: grad_error_list=[]
 
     for i in range(epochs):
-        dL_dr_vec = compute_grad(r_vec)
+        dL_dr_vec = compute_grad_new(r_vec)
         if check_grad_flag:
             #grad_error_list.append(np.sqrt(sum((dL_dr_vec - approx_fprime(r_vec, compute_log_likelihood, 1e-5))**2)))
             #grad_error_list.append(check_grad(compute_log_likelihood, compute_grad, r_vec))
