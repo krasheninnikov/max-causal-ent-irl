@@ -134,7 +134,6 @@ def compute_g(mdp, policy, p_0, T, d_last_step_list):
 
         G_corr = np.zeros_like(G_second)
         E_f = compute_E_f_for_G(mdp, policy, np.eye(mdp.nS), T, policy_t=t)
-        print(np.sum(E_f))
         #E_f = np.sum(d_last_step_array_all_starts[0:T-t-1, :, :], axis = 0) @ mdp.f_matrix
         for s_t_p_1 in range(mdp.nS):
 
