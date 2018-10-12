@@ -141,7 +141,7 @@ def compute_g(mdp, policy, p_0, T, d_last_step_list):
             s_t_p_1_vec[s_t_p_1] = 1
             sum_comp = np.copy((mdp.T_matrix - s_t_p_1_vec) @ E_f)
 
-            w = (policy[t] * np.expand_dims(d_last_step_list[t+1], axis=1)).flatten()
+            w = (policy[t] * np.expand_dims(d_last_step_list[t], axis=1)).flatten()
             w = w * mdp.T_matrix[:, s_t_p_1].toarray().squeeze()
 
             G_corr[s_t_p_1,:] = w @ sum_comp
