@@ -59,7 +59,6 @@ def compute_d_last_step_parallel(mdp, policy, p_0, T, gamma=1, verbose=False, re
         d_last_step_array = np.zeros((T, p_0.shape[0], mdp.nS))
         D, d_last_step_array[0, :, :] = p_0, p_0
 
-
     i=1
     for t in range(T-1):
         # D(s') = \sum_{s, a} D_prev(s) * p(a | s) * p(s' | s, a)
@@ -97,12 +96,29 @@ def compute_f_matmul(mdp, policy, p_0, s_current, horizon):
     return F
 
 
+def compute_d_last_step_for_G(mdp, policy, p_0, T, policy_t):
+    '''Computes the array of last-step occupancy measures;
+       policy of the fitst action is policy_t'''
+    d_last_step_array = np.zeros((T, p_0.shape[0], mdp.nS))
+    D, d_last_step_array[0, :, :] = p_0, p_0
+
+    i=1
+    for t in range(T-policy_t-1):
+        # D(s') = \sum_{s, a} D_prev(s) * p(a | s) * p(s' | s, a)
+        state_action_prob = (np.expand_dims(D, axis=2) * policy[policy_t+t])
+        D = (mdp.T_matrix_transpose.dot(state_action_prob.reshape(p_0.shape[0],-1).T)).T
+
+        d_last_step_array[i] = D
+        i+=1
+
+    return d_last_step_array
+
+
 def compute_g(mdp, policy, p_0, T, d_last_step_list):
     # base case
     G = np.expand_dims(p_0, axis=1) * mdp.f_matrix
 
-
-    _, d_last_step_array_all_starts = compute_d_last_step_parallel(mdp, policy, np.eye(mdp.nS), T, return_all=True)
+    # _, d_last_step_array_all_starts = compute_d_last_step_parallel(mdp, policy, np.eye(mdp.nS), T, return_all=True)
     # recursive case
     for t in range(T-1):
         # G(s') = \sum_{s, a} p(a | s) p(s' | s, a) [ d_last_step_list[t] feature_matrix[s'] + G_prev[s] ]
@@ -117,14 +133,15 @@ def compute_g(mdp, policy, p_0, T, d_last_step_list):
         G_second = mdp.T_matrix_transpose.dot(G_second)
 
         G_corr = np.zeros_like(G_second)
-        E_f = np.sum(d_last_step_array_all_starts[0:T-t-1, :,:], axis = 0) @ mdp.f_matrix
+        d_last_step_array_all_starts = compute_d_last_step_for_G(mdp, policy, np.eye(mdp.nS), T, policy_t=t)
+        E_f = np.sum(d_last_step_array_all_starts, axis = 0) @ mdp.f_matrix
         for s_t_p_1 in range(mdp.nS):
 
             s_t_p_1_vec = np.zeros(mdp.nS)
             s_t_p_1_vec[s_t_p_1] = 1
             sum_comp = np.copy((mdp.T_matrix - s_t_p_1_vec) @ E_f)
 
-            w = (policy[t] * np.expand_dims(d_last_step_list[t], axis=1)).flatten()
+            w = (policy[t] * np.expand_dims(d_last_step_list[t+1], axis=1)).flatten()
             w = w * mdp.T_matrix[:, s_t_p_1].toarray().squeeze()
 
             G_corr[s_t_p_1,:] = w @ sum_comp
