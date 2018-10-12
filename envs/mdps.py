@@ -49,7 +49,7 @@ class MDP(object):
 
     def get_transition_matrix_2D(self):
         '''Return a matrix with index S,A,S' -> P(S'|S,A)'''
-        T = np.zeros([self.nS * self.nA, self.nS])
+        T = np.zeros([self.nS * self.nA, self.nS], dtype='float32')
         s_a_pos_index=0
         for s in range(self.nS):
             for a in range(self.nA):
@@ -59,7 +59,7 @@ class MDP(object):
                     if s_prime in s_a_s.keys():
                         T[s_a_pos_index, s_prime] = s_a_s[s_prime]
                 s_a_pos_index+=1
-        self.T_matrix = T
+        self.T_matrix = lil_matrix(T)
         self.T_matrix_transpose = T.transpose()
 
 
@@ -127,6 +127,37 @@ class MDP_toy_irreversibility(MDP):
 
     def reset(self):
         self.s = 0
+        return self.s
+
+
+class MDP_toy_irreversibility_nondet(MDP):
+    def __init__(self):
+
+        self.nS = 4 # number of states
+        self.nA = 2
+        self.init_state = 0
+        # 5 features with the last one being always zero;
+        # easier to troubleshoot shapes when nF!=nS
+        self.f_matrix = np.vstack((np.eye(self.nS), np.zeros(self.nS), np.zeros(self.nS))).T
+        print(self.f_matrix.shape)
+        self.num_features=6
+        self.P = {}
+        self.P.update({0:{0:[(1.0, 1,-.1)], 1:[(1.0, 3, 1)]}})
+        self.P.update({1:{0:[(1.0, 2, 1)], 1:[(1.0, 0, 0)]}})
+        self.P.update({2:{0:[(1.0, 2, 1)], 1:[(1.0, 1, -.1)]}})
+        self.P.update({3:{0:[(.95, 3, 1), (.05, 0, 1)], 1:[(1.0, 3, 1)]}})
+        self.get_transition_matrix_2D()
+        self.reset()
+
+    def print_state(self,s):
+        pass
+    def get_state_from_num(self,num):
+        return num
+    def get_num_from_state(self,s):
+        return s
+
+    def reset(self, s=0):
+        self.s = s
         return self.s
 
 

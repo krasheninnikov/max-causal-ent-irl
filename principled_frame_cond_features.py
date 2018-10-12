@@ -114,16 +114,16 @@ def compute_g(mdp, policy, p_0, T, d_last_step_list):
         G_corr = np.zeros_like(G_second)
         E_f = np.sum(d_last_step_array[0:T-t-1, :,:], axis = 0) @ mdp.f_matrix
         for s_t_p_1 in range(mdp.nS):
-            
-            one_hot_s_t_p_1 = np.zeros(mdp.nS)
-            one_hot_s_t_p_1[s_t_p_1] = 1
 
-            p_diff = mdp.T_matrix[:, :] - one_hot_s_t_p_1
+            s_t_p_1_vec = np.zeros(mdp.nS)
+            s_t_p_1_vec[s_t_p_1] = 1
 
-            sum_comp = np.copy(p_diff @ E_f)
+            sum_comp = np.copy((mdp.T_matrix - s_t_p_1_vec) @ E_f)
 
-            G_corr[s_t_p_1,:] += policy[t].flatten() * d_last_step_list[t] * mdp.T_matrix[:, s_t_p_1] * sum_comp.squeeze()
-            s_a_pos_index +=1
+            w = (policy[t] * np.expand_dims(d_last_step_list[t], axis=1)).flatten()
+            w = w * mdp.T_matrix[:, s_t_p_1].toarray().squeeze()
+
+            G_corr[s_t_p_1,:] = w @ sum_comp
 
         G = G_first + G_second + G_corr
 
