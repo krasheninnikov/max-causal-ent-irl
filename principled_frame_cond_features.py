@@ -54,17 +54,23 @@ def compute_d_last_step_parallel(mdp, policy, p_0, T, gamma=1, verbose=False, re
 
     if return_FE:
         d_last_step_array = np.zeros((T, p_0.shape[0], mdp.num_features))
+        D, d_last_step_array[0, :, :] = p_0 @ mdp.f_matrix, p_0 @ mdp.f_matrix
     else:
         d_last_step_array = np.zeros((T, p_0.shape[0], mdp.nS))
+        D, d_last_step_array[0, :, :] = p_0, p_0
 
-    D, d_last_step_array[0, :, :] = p_0, p_0
+
     i=1
     for t in range(T-1):
         # D(s') = \sum_{s, a} D_prev(s) * p(a | s) * p(s' | s, a)
         state_action_prob = (np.expand_dims(D, axis=2) * policy[t])
         D = (mdp.T_matrix_transpose.dot(state_action_prob.reshape(n,-1).T)).T
 
-        if return_all: d_last_step_array[i]=D
+        if return_all:
+            if return_FE:
+                d_last_step_array[i]=D @ mdp.f_matrix
+            else:
+                d_last_step_array[i]=D
         i+=1
 
         if verbose is True: print(D)
