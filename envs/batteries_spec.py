@@ -13,11 +13,11 @@ class BatteriesSpec(object):
 
 def get_problem(version):
     # -------
-    # |B G B|
+    # |B G  |
     # |  TT |
     # |  TTG|
     # |     |
-    # |A    |
+    # |A   B|
     # -------
     spec = BatteriesSpec(
         5, 5,

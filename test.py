@@ -145,11 +145,7 @@ def experiment_wrapper(env_name='vases',
         env.print_state(env.init_state)
         print()
 
-    if not uniform_prior:
-        p_0=np.zeros(env.nS)
-        p_0[env.get_num_from_state(env.init_state)] = 1
-    else:
-        p_0=np.ones(env.nS) / env.nS
+    p_0 = env.get_initial_state_distribution(known_initial_state=not uniform_prior)
 
     deviation = inference_algorithm == "deviation"
     reachability = inference_algorithm == "reachability"
