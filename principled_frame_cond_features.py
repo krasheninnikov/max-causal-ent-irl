@@ -101,8 +101,8 @@ def compute_g(mdp, policy, p_0, T, d_last_step_list):
     # base case
     G = np.expand_dims(p_0, axis=1) * mdp.f_matrix
 
-    
-    _, d_last_step_array = compute_d_last_step_parallel(mdp, policy, np.eye(mdp.nS), T, return_all=True)
+
+    _, d_last_step_array_all_starts = compute_d_last_step_parallel(mdp, policy, np.eye(mdp.nS), T, return_all=True)
     # recursive case
     for t in range(T-1):
         # G(s') = \sum_{s, a} p(a | s) p(s' | s, a) [ d_last_step_list[t] feature_matrix[s'] + G_prev[s] ]
@@ -117,7 +117,7 @@ def compute_g(mdp, policy, p_0, T, d_last_step_list):
         G_second = mdp.T_matrix_transpose.dot(G_second)
 
         G_corr = np.zeros_like(G_second)
-        E_f = np.sum(d_last_step_array[0:T-t-1, :,:], axis = 0) @ mdp.f_matrix
+        E_f = np.sum(d_last_step_array_all_starts[0:T-t-1, :,:], axis = 0) @ mdp.f_matrix
         for s_t_p_1 in range(mdp.nS):
 
             s_t_p_1_vec = np.zeros(mdp.nS)
