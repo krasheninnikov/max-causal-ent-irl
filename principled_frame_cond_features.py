@@ -96,11 +96,11 @@ def compute_f_matmul(mdp, policy, p_0, s_current, horizon):
     return F
 
 
-def compute_d_last_step_for_G(mdp, policy, p_0, T, policy_t):
+def compute_E_f_for_G(mdp, policy, p_0, T, policy_t):
     '''Computes the array of last-step occupancy measures;
        policy of the fitst action is policy_t'''
-    d_last_step_array = np.zeros((T, p_0.shape[0], mdp.nS))
-    D, d_last_step_array[0, :, :] = p_0, p_0
+    f_last_step = p_0 @ mdp.f_matrix
+    D = p_0
 
     i=1
     for t in range(T-policy_t-1):
@@ -108,10 +108,10 @@ def compute_d_last_step_for_G(mdp, policy, p_0, T, policy_t):
         state_action_prob = (np.expand_dims(D, axis=2) * policy[policy_t+t])
         D = (mdp.T_matrix_transpose.dot(state_action_prob.reshape(p_0.shape[0],-1).T)).T
 
-        d_last_step_array[i] = D
+        f_last_step += D @ mdp.f_matrix
         i+=1
 
-    return d_last_step_array
+    return f_last_step
 
 
 def compute_g(mdp, policy, p_0, T, d_last_step_list):
@@ -133,8 +133,8 @@ def compute_g(mdp, policy, p_0, T, d_last_step_list):
         G_second = mdp.T_matrix_transpose.dot(G_second)
 
         G_corr = np.zeros_like(G_second)
-        d_last_step_array_all_starts = compute_d_last_step_for_G(mdp, policy, np.eye(mdp.nS), T, policy_t=t)
-        E_f = np.sum(d_last_step_array_all_starts, axis = 0) @ mdp.f_matrix
+        E_f = compute_E_f_for_G(mdp, policy, np.eye(mdp.nS), T, policy_t=t+1)
+        #E_f = np.sum(d_last_step_array_all_starts[0:T-t-1, :, :], axis = 0) @ mdp.f_matrix
         for s_t_p_1 in range(mdp.nS):
 
             s_t_p_1_vec = np.zeros(mdp.nS)
