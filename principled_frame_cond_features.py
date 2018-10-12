@@ -46,20 +46,23 @@ class laplace_distr(object):
         return (self.mu-x)/(np.fabs(x-self.mu)*self.b)
 
 
-def compute_d_last_step_parallel(mdp, policy, p_0, T, gamma=1, verbose=False, return_all=False):
+def compute_d_last_step_parallel(mdp, policy, p_0, T, gamma=1, verbose=False, return_all=False, return_FE=False):
     '''Computes the last-step occupancy measure'''
     if len(p_0.shape)==1:
         p_0 = p_0.reshape((-1,1))
     n = p_0.shape[0]
 
-    d_last_step_array = np.zeros((T, p_0.shape[0], p_0.shape[1]))
+    if return_FE:
+        d_last_step_array = np.zeros((T, p_0.shape[0], mdp.num_features))
+    else:
+        d_last_step_array = np.zeros((T, p_0.shape[0], mdp.nS))
+
     D, d_last_step_array[0, :, :] = p_0, p_0
     i=1
     for t in range(T-1):
         # D(s') = \sum_{s, a} D_prev(s) * p(a | s) * p(s' | s, a)
         state_action_prob = (np.expand_dims(D, axis=2) * policy[t])
-        D = mdp.T_matrix_transpose.dot(state_action_prob.reshape(n,-1).T)
-        D = D.T
+        D = (mdp.T_matrix_transpose.dot(state_action_prob.reshape(n,-1).T)).T
 
         if return_all: d_last_step_array[i]=D
         i+=1
@@ -91,9 +94,9 @@ def compute_f_matmul(mdp, policy, p_0, s_current, horizon):
 def compute_g(mdp, policy, p_0, T, d_last_step_list):
     # base case
     G = np.expand_dims(p_0, axis=1) * mdp.f_matrix
+    # TODO base case fo G_corr
 
     d_last_step, d_last_step_array = compute_d_last_step_parallel(mdp, policy, np.eye(mdp.nS), T, return_all=True)
-    print((d_last_step_array @ mdp.f_matrix).shape, 'd_last_step_array.shape')
 
     # recursive case
     for t in range(T-1):
@@ -117,13 +120,23 @@ def compute_g(mdp, policy, p_0, T, d_last_step_list):
 
                     one_hot_s_t_p_1 = np.zeros(mdp.nS)
                     one_hot_s_t_p_1[s_t_p_1] = 1
+
+                    # print(mdp.T_matrix.shape, "T_matrix")
+                    # print(one_hot_s_t_p_1.shape, "one_hot_s_t_p_1")
+                    # print(type(mdp.T_matrix[s_a_pos_index, :]))
+
                     p_diff = mdp.T_matrix[s_a_pos_index, :] - one_hot_s_t_p_1
 
-                    sum_comp = p_diff @ E_f
-                    #print(sum_comp.shape, 'sum_comp.shape')
+                    # print(p_diff.shape, 'p_diff.shape')
+                    # print(E_f.shape, 'E_f.shape')
 
-                    G_corr[s_t_p_1,:] += policy[t][s_t, a_t] * d_last_step_list[t][s_t] * mdp.T_matrix[s_a_pos_index, s_t_p_1] * sum_comp
+                    sum_comp = np.copy(p_diff @ E_f)
 
+                    # print(sum_comp[0, :], 'sum_comp[0]')
+                    # print(sum_comp.shape, 'sum_comp.shape')
+                    # print(G_corr[s_t_p_1,:].shape, 'G_corr[s_t_p_1,:]')
+
+                    G_corr[s_t_p_1,:] += policy[t][s_t, a_t] * d_last_step_list[t][s_t] * mdp.T_matrix[s_a_pos_index, s_t_p_1] * sum_comp.squeeze()
                     s_a_pos_index +=1
 
         G = G_first + G_second + G_corr
