@@ -32,7 +32,7 @@ from relative_reachability import relative_reachability_penalty
 from value_iter import value_iter, evaluate_policy
 
 
-def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
+def forward_rl(env, r_planning, r_true, h=40, temp=0, last_steps_printed=3,
                current_s_num=None, weight=1, penalize_deviation=False,
                relative_reachability=False, print_level=1):
     '''Given an env and R, runs soft VI for h steps and rolls out the resulting policy'''
@@ -49,7 +49,7 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
         r_s = np.expand_dims(r_s, 0) - weight * r_r
 
     # For evaluation, plan optimally instead of Boltzmann-rationally
-    policies = value_iter(env, 1, r_s, h, temperature=None, time_dependent_reward=time_dependent_reward)
+    policies = value_iter(env, 1, r_s, h, temperature=temp, time_dependent_reward=time_dependent_reward)
 
     env.reset(current_state)
     if print_level >= 1:
@@ -58,7 +58,7 @@ def forward_rl(env, r_planning, r_true, h=40, temp=.1, last_steps_printed=3,
 
     total_reward = 0
     if print_level >= 1:
-        print('Last {} of the {} rolled out steps:'.format(last_steps_printed, h-1))
+        print('Last {} of the {} rolled out steps:'.format(last_steps_printed, h))
     for i in range(h-1):
         a = np.random.choice(env.nA, p=policies[i][env.get_num_from_state(env.s),:])
         obs, reward, done, info = env.step(a, r_vec=r_true)
@@ -116,7 +116,7 @@ def experiment_wrapper(env_name='vases',
                        combination_algorithm='add_rewards',
                        prior='gaussian',
                        horizon=20,
-                       evaluation_horizon=20,
+                       evaluation_horizon=0,
                        temperature=1,
                        learning_rate=.1,
                        inferred_weight=1,
@@ -128,12 +128,17 @@ def experiment_wrapper(env_name='vases',
                        step_size=.01,
                        seed=0,
                        std=0.5,
-                       print_level=1):
+                       print_level=1,
+                       forward_rl_temp=0):
     # Check the parameters so that we fail fast
     assert inference_algorithm in ['mceirl', 'sampling', 'deviation', 'reachability', 'pass']
     assert combination_algorithm in ['add_rewards', 'use_prior']
     assert prior in ['gaussian', 'laplace', 'uniform']
     assert all((measure in ['true_reward', 'final_reward'] for measure in measures))
+
+    if evaluation_horizon==0:
+        evaluation_horizon = horizon
+
     if combination_algorithm == 'use_prior':
         assert inference_algorithm in ['mceirl', 'sampling']
 
@@ -175,16 +180,16 @@ def experiment_wrapper(env_name='vases',
         r_final = r_task
         if r_inferred is not None:
             r_final = r_task + inferred_weight * r_inferred
-        true_reward_obtained = forward_rl(env, r_final, r_true, h=evaluation_horizon, current_s_num=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
+        true_reward_obtained = forward_rl(env, r_final, r_true, temp=forward_rl_temp, h=evaluation_horizon, current_s_num=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
     elif combination_algorithm == "use_prior":
         assert r_inferred is not None
         assert (not deviation) and (not reachability)
         r_final = r_inferred
-        true_reward_obtained = forward_rl(env, r_final, r_true, h=evaluation_horizon, current_s_num=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
+        true_reward_obtained = forward_rl(env, r_final, r_true, temp=forward_rl_temp, h=evaluation_horizon, current_s_num=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
     else:
         raise ValueError('Unknown combination algorithm: {}'.format(combination_algorithm))
 
-    best_possible_reward = forward_rl(env, r_true, r_true, h=evaluation_horizon, current_s_num=s_current, print_level=0)
+    best_possible_reward = forward_rl(env, r_true, r_true, temp=forward_rl_temp, h=evaluation_horizon, current_s_num=s_current, print_level=0)
 
     def get_measure(measure):
         if measure == 'final_reward':
@@ -213,7 +218,7 @@ PARAMETERS = [
      'Prior on the inferred reward function: one of [gaussian, laplace, uniform]. Centered at zero if combination_algorithm is add_rewards, and at the task reward if combination_algorithm is use_prior. Only has an effect if inference_algorithm is mceirl or sampling.'),
     ('-H', '--horizon', '20', int,
      'Number of timesteps we assume the human has been acting.'),
-    ('-x', '--evaluation_horizon', '20', int,
+    ('-x', '--evaluation_horizon', '0', int,
      'Number of timesteps we act after inferring the reward.'),
     ('-t', '--temperature', '1.0', float,
      'Boltzmann rationality constant for the human. Note this is temperature, which is the inverse of beta.'),
@@ -238,7 +243,9 @@ PARAMETERS = [
     ('-k', '--std', '0.5', float,
      'Standard deviation for the prior'),
     ('-v', '--print_level', '1', int,
-     'Level of verbosity.')
+     'Level of verbosity.'),
+     ('-f', '--forward_rl_temp', '0.0', float,
+      'Boltzmann rationality constant for the robot in forward_rl evaluation; value 0 corresponds to a fully rational robot'),
 ]
 
 # Writing output for experiments
@@ -249,7 +256,8 @@ def get_filename(args):
     param_values = [args.__dict__[name] for name in param_names]
 
     filename = '{}-' + '={}-'.join(param_short_names) + '={}.csv'
-    filename = filename.format(str(datetime.datetime.now()), *param_values)
+    time_str = str(datetime.datetime.now()).replace(':', '-').replace('.', '-').replace(' ', '-')
+    filename = filename.format(time_str, *param_values)
     return args.output_folder + '/' + filename
 
 def write_output(results, indep_var, indep_vals, dependent_vars, args):
