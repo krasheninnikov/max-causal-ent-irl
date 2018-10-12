@@ -100,10 +100,9 @@ def compute_f_matmul(mdp, policy, p_0, s_current, horizon):
 def compute_g(mdp, policy, p_0, T, d_last_step_list):
     # base case
     G = np.expand_dims(p_0, axis=1) * mdp.f_matrix
-    # TODO base case fo G_corr
 
-    d_last_step, d_last_step_array = compute_d_last_step_parallel(mdp, policy, np.eye(mdp.nS), T, return_all=True)
-
+    
+    _, d_last_step_array = compute_d_last_step_parallel(mdp, policy, np.eye(mdp.nS), T, return_all=True)
     # recursive case
     for t in range(T-1):
         # G(s') = \sum_{s, a} p(a | s) p(s' | s, a) [ d_last_step_list[t] feature_matrix[s'] + G_prev[s] ]
@@ -123,7 +122,6 @@ def compute_g(mdp, policy, p_0, T, d_last_step_list):
 
             s_t_p_1_vec = np.zeros(mdp.nS)
             s_t_p_1_vec[s_t_p_1] = 1
-
             sum_comp = np.copy((mdp.T_matrix - s_t_p_1_vec) @ E_f)
 
             w = (policy[t] * np.expand_dims(d_last_step_list[t], axis=1)).flatten()
