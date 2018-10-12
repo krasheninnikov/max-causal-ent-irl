@@ -88,9 +88,12 @@ def compute_f_matmul(mdp, policy, p_0, s_current, horizon):
     return F
 
 
-def compute_g(mdp, policy, p_0, T, d_last_step_list, feature_matrix):
+def compute_g(mdp, policy, p_0, T, d_last_step_list):
     # base case
-    G = np.expand_dims(p_0, axis=1) * feature_matrix
+    G = np.expand_dims(p_0, axis=1) * mdp.f_matrix
+
+    d_last_step, d_last_step_array = compute_d_last_step_parallel(mdp, policy, np.eye(mdp.nS), T, return_all=True)
+    print((d_last_step_array @ mdp.f_matrix).shape, 'd_last_step_array.shape')
 
     # recursive case
     for t in range(T-1):
@@ -99,13 +102,31 @@ def compute_g(mdp, policy, p_0, T, d_last_step_list, feature_matrix):
         G_first = np.expand_dims(d_last_step_list[t].reshape(mdp.nS), axis=1) * policy[t]
         G_first = G_first.reshape((mdp.nS * mdp.nA,))
         G_first = mdp.T_matrix_transpose.dot(G_first)
-        G_first = np.expand_dims(G_first, axis=1) * feature_matrix
+        G_first = np.expand_dims(G_first, axis=1) * mdp.f_matrix
 
         G_second = np.expand_dims(policy[t], axis=-1) * np.expand_dims(G, axis=1)
         G_second = G_second.reshape((mdp.nS * mdp.nA, mdp.num_features))
         G_second = mdp.T_matrix_transpose.dot(G_second)
 
-        G = G_first + G_second
+        G_corr = np.zeros_like(G_second)
+        E_f = np.sum(d_last_step_array[0:T-t-1, :,:], axis = 0) @ mdp.f_matrix
+        for s_t_p_1 in range(mdp.nS):
+            s_a_pos_index=0
+            for s_t in range(mdp.nS):
+                for a_t in range(mdp.nA):
+
+                    one_hot_s_t_p_1 = np.zeros(mdp.nS)
+                    one_hot_s_t_p_1[s_t_p_1] = 1
+                    p_diff = mdp.T_matrix[s_a_pos_index, :] - one_hot_s_t_p_1
+
+                    sum_comp = p_diff @ E_f
+                    #print(sum_comp.shape, 'sum_comp.shape')
+
+                    G_corr[s_t_p_1,:] += policy[t][s_t, a_t] * d_last_step_list[t][s_t] * mdp.T_matrix[s_a_pos_index, s_t_p_1] * sum_comp
+
+                    s_a_pos_index +=1
+
+        G = G_first + G_second + G_corr
 
     return G
 
@@ -153,15 +174,14 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
         # Compute the Boltzmann rational policy \pi_{s,a} = \exp(Q_{s,a} - V_s)
         policy = value_iter(mdp, 1, mdp.f_matrix @ r_vec, horizon, temp)
 
-        F = compute_f(mdp, policy, p_0, s_current, horizon)
-
         d_last_step, d_last_step_list = compute_d_last_step(
             mdp, policy, p_0, horizon, return_all=True)
         if d_last_step[s_current] == 0:
             print('Error in om_method: No feasible trajectories!')
             return r_vec
 
-        G = compute_g(mdp, policy, p_0, horizon, d_last_step_list, mdp.f_matrix)
+        G = compute_g(mdp, policy, p_0, horizon, d_last_step_list)
+        F = compute_f(mdp, policy, p_0, s_current, horizon)
 
         # Compute the gradient
         dL_dr_vec = (G[s_current]  - F)/ d_last_step[s_current]
@@ -182,8 +202,7 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
 
         feature_expectations = sum(d_last_step_list) @ mdp.f_matrix
 
-        G = compute_g(
-            mdp, policy, p_0, horizon, d_last_step_list, mdp.f_matrix)
+        G = compute_g(mdp, policy, p_0, horizon, d_last_step_list)
         # Compute the gradient
         dL_dr_vec = G[s_current] / d_last_step[s_current] - feature_expectations
         # Gradient of the prior

@@ -3,6 +3,7 @@ import csv
 import datetime
 import numpy as np
 import sys
+import os
 from scipy.stats import uniform as uniform_distr
 
 from envs.vases_grid import VasesGrid, VasesEnvState
@@ -22,6 +23,8 @@ from envs.batteries_spec import BATTERIES_PROBLEMS
 
 from envs.apples import ApplesEnv, ApplesState
 from envs.apples_spec import APPLES_PROBLEMS
+
+from envs.mdps import MDP_toy_irreversibility_nondet
 
 from envs.utils import unique_perm, zeros_with_ones, printoptions
 
@@ -89,14 +92,17 @@ ENV_CLASSES = {
 }
 
 def get_problem_parameters(env_name, problem_name):
-    if env_name not in ENV_CLASSES:
-        raise ValueError('Environment {} is not one of {}'.format(env_name, list(ENV_CLASSES.keys())))
-    if problem_name not in PROBLEMS[env_name]:
-        raise ValueError('Problem spec {} is not one of {}'.format(problem_name, list(PROBLEMS[env_name].keys())))
+    if env_name == 'toy_nondet':
+        return MDP_toy_irreversibility_nondet(), 0, np.asarray([1.0,0.0,0.0,0.0,0.0]), np.asarray([1.0,0.0,0.0,-1.0,0.0])
+    else:
+        if env_name not in ENV_CLASSES:
+            raise ValueError('Environment {} is not one of {}'.format(env_name, list(ENV_CLASSES.keys())))
+        if problem_name not in PROBLEMS[env_name]:
+            raise ValueError('Problem spec {} is not one of {}'.format(problem_name, list(PROBLEMS[env_name].keys())))
 
-    spec, cur_state, r_task, r_true = PROBLEMS[env_name][problem_name]
-    env = ENV_CLASSES[env_name](spec)
-    return env, env.get_num_from_state(cur_state), r_task, r_true
+        spec, cur_state, r_task, r_true = PROBLEMS[env_name][problem_name]
+        env = ENV_CLASSES[env_name](spec)
+        return env, env.get_num_from_state(cur_state), r_task, r_true
 
 
 def get_r_prior(prior, reward_center, std):
@@ -260,7 +266,8 @@ def get_filename(args):
     param_values = [args.__dict__[name] for name in param_names]
 
     filename = '{}-' + '={}-'.join(param_short_names) + '={}.csv'
-    time_str = str(datetime.datetime.now()).replace(':', '-').replace('.', '-').replace(' ', '-')
+    #time_str = str(datetime.datetime.now()).replace(':', '-').replace('.', '-').replace(' ', '-')
+    time_str = 'res'
     filename = filename.format(time_str, *param_values)
     return args.output_folder + '/' + filename
 
@@ -322,12 +329,14 @@ def main():
         indep_var = next(iter(indep_vars_dict.keys()))
         indep_vals = indep_vars_dict[indep_var]
         results = []
-        for indep_val in indep_vals:
-            experiment_args = control_vars_dict.copy()
-            experiment_args[indep_var] = indep_val
-            experiment_args['measures'] = dependent_vars
-            results.append(experiment_wrapper(**experiment_args))
-        write_output(results, indep_var, indep_vals, dependent_vars, args)
+
+        if not os.path.isfile(get_filename(args)):
+            for indep_val in indep_vals:
+                experiment_args = control_vars_dict.copy()
+                experiment_args[indep_var] = indep_val
+                experiment_args['measures'] = dependent_vars
+                results.append(experiment_wrapper(**experiment_args))
+            write_output(results, indep_var, indep_vals, dependent_vars, args)
     else:
         raise ValueError('Can only support one independent variable (that is, a flag with multiple comma-separated values)')
 
