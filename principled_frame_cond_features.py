@@ -110,6 +110,7 @@ def compute_E_f_for_G(mdp, policy, p_0, T, policy_t):
 
         f_last_step += D @ mdp.f_matrix
         i+=1
+        print(t)
 
     return f_last_step
 
@@ -133,13 +134,15 @@ def compute_g(mdp, policy, p_0, T, d_last_step_list):
         G_second = mdp.T_matrix_transpose.dot(G_second)
 
         G_corr = np.zeros_like(G_second)
-        E_f = compute_E_f_for_G(mdp, policy, np.eye(mdp.nS), T, policy_t=t+1)
+        E_f = compute_E_f_for_G(mdp, policy, np.eye(mdp.nS), T, policy_t=t)
+        print(np.sum(E_f))
         #E_f = np.sum(d_last_step_array_all_starts[0:T-t-1, :, :], axis = 0) @ mdp.f_matrix
         for s_t_p_1 in range(mdp.nS):
 
             s_t_p_1_vec = np.zeros(mdp.nS)
             s_t_p_1_vec[s_t_p_1] = 1
             sum_comp = np.copy((mdp.T_matrix - s_t_p_1_vec) @ E_f)
+
 
             w = (policy[t] * np.expand_dims(d_last_step_list[t+1], axis=1)).flatten()
             w = w * mdp.T_matrix[:, s_t_p_1].toarray().squeeze()
