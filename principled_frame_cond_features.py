@@ -53,29 +53,27 @@ def compute_g(mdp, policy, p_0, T, d_last_step_list, expected_features_list):
     G = np.zeros((nS, nF))
     # recursive case
     for t in range(T-1):
-        # G(s') = \sum_{s, a} p(a | s) p(s' | s, a) [ p(s) g(s, a, s') + G_prev[s] ]
+        # G(s') = \sum_{s, a} p(a | s) p(s' | s, a) [ p(s) g(s, a) + G_prev[s] ]
         # p(s) is given by d_last_step_list[t]
-        # g(s, a, s') = f(s') - F(s') + \sum_{s2} p(s2 | s, a) F(s2)
+        # g(s, a) = f(s) - F(s) + \sum_{s'} p(s' | s, a) F(s')
         # Distribute the addition to get three different terms:
         # First term:  p(s) [f(s') - F(s')]
         # Second term: p(s) \sum_{s2} p(s2 | s, a) F(s2)
         # Third term:  G_prev[s]
-        g_first = mdp.f_matrix - expected_features_list[t+1]
+        g_first = mdp.f_matrix - expected_features_list[t]
         g_second = mdp.T_matrix.dot(expected_features_list[t+1])
         g_second = g_second.reshape((nS, nA, nF))
+        g_total = np.expand_dims(g_first, axis=1) + g_second
 
         prob_s_a = np.expand_dims(d_last_step_list[t].reshape(nS), axis=1) * policy[t]
 
-        G_first = mdp.T_matrix_transpose.dot(prob_s_a.reshape((nS * nA,)))
-        G_first = np.expand_dims(G_first, axis=1) * g_first
+        G_value = np.expand_dims(prob_s_a, axis=2) * g_total
+        G_value = mdp.T_matrix_transpose.dot(G_value.reshape((nS * nA, nF)))
 
-        G_second = np.expand_dims(prob_s_a, axis=2) * g_second
-        G_second = mdp.T_matrix_transpose.dot(G_second.reshape((nS * nA, nF)))
+        G_recurse = np.expand_dims(policy[t], axis=-1) * np.expand_dims(G, axis=1)
+        G_recurse = mdp.T_matrix_transpose.dot(G_recurse.reshape((nS * nA, nF)))
 
-        G_third = np.expand_dims(policy[t], axis=-1) * np.expand_dims(G, axis=1)
-        G_third = mdp.T_matrix_transpose.dot(G_third.reshape((nS * nA, nF)))
-
-        G = G_first + G_second + G_third
+        G = G_value + G_recurse
 
     return G
 
@@ -92,17 +90,6 @@ def compute_d_last_step(mdp, policy, p_0, T, gamma=1, verbose=False, return_all=
         if return_all: d_last_step_list.append(D)
 
     return (D, d_last_step_list) if return_all else D
-
-def compute_p_T_given_0(mdp, policy, s_current, T):
-    nS, nA, nF = mdp.nS, mdp.nA, mdp.num_features
-    p_T_given_t = np.zeros((nS,))
-    p_T_given_t[s_current] = 1
-
-    for t in range(T-2, -1, -1):
-        future_p = mdp.T_matrix.dot(p_T_given_t).reshape((nS, nA))
-        p_T_given_t = np.sum(future_p * policy[t], axis=1)
-
-    return p_T_given_t
 
 def compute_feature_expectations(mdp, policy, p_0, T):
     nS, nA, nF = mdp.nS, mdp.nA, mdp.num_features
@@ -132,17 +119,13 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
             print('Error in om_method: No feasible trajectories!')
             return r_vec
 
-        p_T_given_0 = compute_p_T_given_0(mdp, policy, s_current, horizon)
-
         expected_features, expected_features_list = compute_feature_expectations(
             mdp, policy, p_0, horizon)
 
         G = compute_g(mdp, policy, p_0, horizon, d_last_step_list, expected_features_list)
 
         # Compute the gradient
-        dL_dr_vec = np.expand_dims(p_0 * p_T_given_0, axis=1)
-        dL_dr_vec = np.sum(dL_dr_vec * (expected_features - mdp.f_matrix), axis=0)
-        dL_dr_vec = (G[s_current] - dL_dr_vec) / d_last_step[s_current]
+        dL_dr_vec = G[s_current] / d_last_step[s_current]
 
         # Gradient of the prior
         if r_prior!= None: dL_dr_vec += r_prior.logdistr_grad(r_vec)
