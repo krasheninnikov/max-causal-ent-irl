@@ -46,90 +46,36 @@ class laplace_distr(object):
         return (self.mu-x)/(np.fabs(x-self.mu)*self.b)
 
 
-def compute_d_last_step_parallel(mdp, policy, p_0, T, gamma=1, verbose=False, return_all=False, return_FE=False):
-    '''Computes the last-step occupancy measure'''
-    if len(p_0.shape)==1:
-        p_0 = p_0.reshape((-1,1))
-    n = p_0.shape[0]
+def compute_g(mdp, policy, p_0, T, d_last_step_list, expected_features_list):
+    nS, nA, nF = mdp.nS, mdp.nA, mdp.num_features
 
-    if return_FE:
-        d_last_step_array = np.zeros((T, p_0.shape[0], mdp.num_features))
-        D, d_last_step_array[0, :, :] = p_0 @ mdp.f_matrix, p_0 @ mdp.f_matrix
-    else:
-        d_last_step_array = np.zeros((T, p_0.shape[0], mdp.nS))
-        D, d_last_step_array[0, :, :] = p_0, p_0
-
-
-    i=1
-    for t in range(T-1):
-        # D(s') = \sum_{s, a} D_prev(s) * p(a | s) * p(s' | s, a)
-        state_action_prob = (np.expand_dims(D, axis=2) * policy[t])
-        D = (mdp.T_matrix_transpose.dot(state_action_prob.reshape(n,-1).T)).T
-
-        if return_all:
-            if return_FE:
-                d_last_step_array[i]=D @ mdp.f_matrix
-            else:
-                d_last_step_array[i]=D
-        i+=1
-
-        if verbose is True: print(D)
-
-    return (D, d_last_step_array) if return_all else D
-
-
-def compute_f_matmul(mdp, policy, p_0, s_current, horizon):
-    '''second term of the RLSP gradient'''
-    def ones_at_nonzero(x):
-        '''Returns a matrix of the shape [n,len(x)], where n is the number of non-zero elements in x'''
-        n = len(np.nonzero(x)[0])
-        out = np.zeros((n, x.shape[0]))
-        out[np.arange(n), np.nonzero(x)[0]] =1
-        return out
-
-    F = np.zeros(mdp.f_matrix.shape[1], dtype='float64')
-
-    d_last_step, d_last_step_list = compute_d_last_step_parallel(mdp, policy, ones_at_nonzero(p_0), horizon, return_all=True)
-
-    feature_expectations = np.sum(d_last_step_list, axis=0).reshape((-1, mdp.nS)) @ mdp.f_matrix
-    w = (ones_at_nonzero(p_0) @ p_0) * d_last_step[:, s_current]
-    F += (w.reshape(1,-1) @ feature_expectations).flatten()
-    return F
-
-
-def compute_g(mdp, policy, p_0, T, d_last_step_list):
     # base case
-    G = np.expand_dims(p_0, axis=1) * mdp.f_matrix
-
-
-    _, d_last_step_array_all_starts = compute_d_last_step_parallel(mdp, policy, np.eye(mdp.nS), T, return_all=True)
+    G = np.zeros((nS, nF))
     # recursive case
     for t in range(T-1):
-        # G(s') = \sum_{s, a} p(a | s) p(s' | s, a) [ d_last_step_list[t] feature_matrix[s'] + G_prev[s] ]
-        # Distribute the addition to get two different terms
-        G_first = np.expand_dims(d_last_step_list[t].reshape(mdp.nS), axis=1) * policy[t]
-        G_first = G_first.reshape((mdp.nS * mdp.nA,))
-        G_first = mdp.T_matrix_transpose.dot(G_first)
-        G_first = np.expand_dims(G_first, axis=1) * mdp.f_matrix
+        # G(s') = \sum_{s, a} p(a | s) p(s' | s, a) [ p(s) g(s, a, s') + G_prev[s] ]
+        # p(s) is given by d_last_step_list[t]
+        # g(s, a, s') = f(s') - F(s') + \sum_{s2} p(s2 | s, a) F(s2)
+        # Distribute the addition to get three different terms:
+        # First term:  p(s) [f(s') - F(s')]
+        # Second term: p(s) \sum_{s2} p(s2 | s, a) F(s2)
+        # Third term:  G_prev[s]
+        g_first = mdp.f_matrix - expected_features_list[t+1]
+        g_second = mdp.T_matrix.dot(expected_features_list[t+1])
+        g_second = g_second.reshape((nS, nA, nF))
 
-        G_second = np.expand_dims(policy[t], axis=-1) * np.expand_dims(G, axis=1)
-        G_second = G_second.reshape((mdp.nS * mdp.nA, mdp.num_features))
-        G_second = mdp.T_matrix_transpose.dot(G_second)
+        prob_s_a = np.expand_dims(d_last_step_list[t].reshape(nS), axis=1) * policy[t]
 
-        G_corr = np.zeros_like(G_second)
-        E_f = np.sum(d_last_step_array_all_starts[0:T-t-1, :,:], axis = 0) @ mdp.f_matrix
-        for s_t_p_1 in range(mdp.nS):
+        G_first = mdp.T_matrix_transpose.dot(prob_s_a.reshape((nS * nA,)))
+        G_first = np.expand_dims(G_first, axis=1) * g_first
 
-            s_t_p_1_vec = np.zeros(mdp.nS)
-            s_t_p_1_vec[s_t_p_1] = 1
-            sum_comp = np.copy((mdp.T_matrix - s_t_p_1_vec) @ E_f)
+        G_second = np.expand_dims(prob_s_a, axis=2) * g_second
+        G_second = mdp.T_matrix_transpose.dot(G_second.reshape((nS * nA, nF)))
 
-            w = (policy[t] * np.expand_dims(d_last_step_list[t], axis=1)).flatten()
-            w = w * mdp.T_matrix[:, s_t_p_1].toarray().squeeze()
+        G_third = np.expand_dims(policy[t], axis=-1) * np.expand_dims(G, axis=1)
+        G_third = mdp.T_matrix_transpose.dot(G_third.reshape((nS * nA, nF)))
 
-            G_corr[s_t_p_1,:] = w @ sum_comp
-
-        G = G_first + G_second + G_corr
+        G = G_first + G_second + G_third
 
     return G
 
@@ -147,24 +93,28 @@ def compute_d_last_step(mdp, policy, p_0, T, gamma=1, verbose=False, return_all=
 
     return (D, d_last_step_list) if return_all else D
 
+def compute_p_T_given_0(mdp, policy, s_current, T):
+    nS, nA, nF = mdp.nS, mdp.nA, mdp.num_features
+    p_T_given_t = np.zeros((nS,))
+    p_T_given_t[s_current] = 1
 
-def compute_f(mdp, policy, p_0, s_current, horizon):
-    '''second term of the RLSP gradient'''
-    F = np.zeros(mdp.f_matrix.shape[1], dtype='float64')
-    # TODO make a function to compute d_last_step_list for many different s_0
-    # in parallel, and replace the for loop below with matrix multiplication
-    for s_0 in np.nonzero(p_0)[0]:
-        s_0_vec = np.zeros(mdp.nS)
-        s_0_vec[s_0]=1
+    for t in range(T-2, -1, -1):
+        future_p = mdp.T_matrix.dot(p_T_given_t).reshape((nS, nA))
+        p_T_given_t = np.sum(future_p * policy[t], axis=1)
 
-        d_last_step, d_last_step_list = compute_d_last_step(mdp, policy, s_0_vec, horizon, return_all=True)
-        if d_last_step[s_current] == 0:
-            continue
+    return p_T_given_t
 
-        feature_expectations = sum(d_last_step_list) @ mdp.f_matrix
-
-        F += p_0[s_0] * d_last_step[s_current] * feature_expectations.reshape((mdp.f_matrix.shape[1]))
-    return F
+def compute_feature_expectations(mdp, policy, p_0, T):
+    nS, nA, nF = mdp.nS, mdp.nA, mdp.num_features
+    expected_features = mdp.f_matrix
+    expected_feature_list = [expected_features]
+    for t in range(T-2, -1, -1):
+        # F(s) = f(s) + \sum_{a, s'} p(a | s) * p(s' | s, a) * F(s')
+        future_features = mdp.T_matrix.dot(expected_features).reshape((nS, nA, nF))
+        future_features = future_features * np.expand_dims(policy[t], axis=2)
+        expected_features = mdp.f_matrix + np.sum(future_features, axis=1)
+        expected_feature_list.append(expected_features)
+    return expected_features, expected_feature_list[::-1]
 
 
 def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
@@ -176,18 +126,24 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
     def compute_grad_new(r_vec):
         # Compute the Boltzmann rational policy \pi_{s,a} = \exp(Q_{s,a} - V_s)
         policy = value_iter(mdp, 1, mdp.f_matrix @ r_vec, horizon, temp)
-
         d_last_step, d_last_step_list = compute_d_last_step(
             mdp, policy, p_0, horizon, return_all=True)
         if d_last_step[s_current] == 0:
             print('Error in om_method: No feasible trajectories!')
             return r_vec
 
-        G = compute_g(mdp, policy, p_0, horizon, d_last_step_list)
-        F = compute_f(mdp, policy, p_0, s_current, horizon)
+        p_T_given_0 = compute_p_T_given_0(mdp, policy, s_current, horizon)
+
+        expected_features, expected_features_list = compute_feature_expectations(
+            mdp, policy, p_0, horizon)
+
+        G = compute_g(mdp, policy, p_0, horizon, d_last_step_list, expected_features_list)
 
         # Compute the gradient
-        dL_dr_vec = (G[s_current]  - F)/ d_last_step[s_current]
+        dL_dr_vec = np.expand_dims(p_0 * p_T_given_0, axis=1)
+        dL_dr_vec = np.sum(dL_dr_vec * (expected_features - mdp.f_matrix), axis=0)
+        dL_dr_vec = (G[s_current] - dL_dr_vec) / d_last_step[s_current]
+
         # Gradient of the prior
         if r_prior!= None: dL_dr_vec += r_prior.logdistr_grad(r_vec)
 
@@ -215,8 +171,7 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
 
     def compute_log_likelihood(r_vec):
         policy = value_iter(mdp, 1, mdp.f_matrix @ r_vec, horizon, temp)
-        d_last_step, d_last_step_list = compute_d_last_step(
-                    mdp, policy, p_0, horizon, return_all=True)
+        d_last_step = compute_d_last_step(mdp, policy, p_0, horizon)
         log_likelihood = np.log(d_last_step[s_current])
         if r_prior!= None: log_likelihood += np.sum(r_prior.logpdf(r_vec))
 

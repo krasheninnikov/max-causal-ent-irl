@@ -93,7 +93,7 @@ ENV_CLASSES = {
 
 def get_problem_parameters(env_name, problem_name):
     if env_name == 'toy_nondet':
-        return MDP_toy_irreversibility_nondet(), 0, np.asarray([1.0,0.0,0.0,0.0,0.0]), np.asarray([1.0,0.0,0.0,-1.0,0.0])
+        return MDP_toy_irreversibility_nondet(), 0, np.asarray([1.0,0.0,0.0,0.0,0.0,0.0]), np.asarray([1.0,0.0,0.0,-1.0,0.0,0.0])
     else:
         if env_name not in ENV_CLASSES:
             raise ValueError('Environment {} is not one of {}'.format(env_name, list(ENV_CLASSES.keys())))
