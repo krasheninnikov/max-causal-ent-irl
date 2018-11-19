@@ -105,7 +105,7 @@ def compute_feature_expectations(mdp, policy, p_0, T):
 
 
 def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
-              r_prior=None, r_vec=None, threshold=1e-3, check_grad_flag=True):
+              r_prior=None, r_vec=None, threshold=1e-3, check_grad_flag=False):
     '''The RLSP algorithm'''
     # p_0 = np.zeros(mdp.nS)
     # p_0[s_current]=.5
@@ -180,10 +180,10 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
         # Gradient ascent
         r_vec = r_vec + learning_rate * dL_dr_vec
 
-        if i%1==0:
-            with printoptions(precision=4, suppress=True):
-                print('Epoch {}; Reward vector: {}'.format(i, r_vec))
-                if check_grad_flag: print('grad error: {}'.format(grad_error_list[-1]))
+        # if i%1==0:
+        #     with printoptions(precision=4, suppress=True):
+        #         print('Epoch {}; Reward vector: {}'.format(i, r_vec))
+        #         if check_grad_flag: print('grad error: {}'.format(grad_error_list[-1]))
 
         if np.linalg.norm(dL_dr_vec) < threshold:
             if check_grad_flag:
@@ -193,3 +193,25 @@ def om_method(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2,
             break
 
     return r_vec
+
+
+def consider_compatible_goals(mdp, s_current, p_0, horizon, temp=1, epochs=1, learning_rate=0.2, r_prior=None, r_vec=None, threshold=1e-3, check_grad_flag=False):
+    i=0
+    r_vec_averaged = np.zeros(mdp.f_matrix.shape[1])
+
+    for s_0_prime in range(mdp.nS):
+        p_0_prime = np.zeros(mdp.nS)
+        p_0_prime[s_0_prime]=1
+
+        # fully random policy
+        policy = value_iter(mdp, 1, mdp.f_matrix @ np.zeros(mdp.f_matrix.shape[1]), horizon, temp)
+
+        d_last_step = compute_d_last_step(mdp, policy, p_0_prime, horizon)
+        if d_last_step[s_current] == 0: continue
+
+        i+=1
+        r_vec_averaged += om_method(mdp, s_0_prime, p_0, horizon, temp, epochs, learning_rate, r_prior, r_vec, threshold, check_grad_flag)
+    print(i)
+    r_vec_averaged = r_vec_averaged/i
+
+    return r_vec_averaged
