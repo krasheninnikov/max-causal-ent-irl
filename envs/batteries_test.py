@@ -10,11 +10,11 @@ class TestBatteriesSpec(object):
 
         G is a goal location, B is a battery, A is the agent, and T is the train.
         -------
-        |B G B|
+        |B G  |
         |  TT |
         |  TTG|
         |     |
-        |A    |
+        |A   B|
         -------
         """
         self.height = 5

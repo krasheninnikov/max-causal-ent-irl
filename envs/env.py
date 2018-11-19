@@ -10,6 +10,14 @@ class Env(object):
     def is_deterministic(self):
         return False
 
+    def get_initial_state_distribution(self, known_initial_state=True):
+        if known_initial_state:
+            p_0 = np.zeros(self.nS)
+            p_0[self.get_num_from_state(self.init_state)] = 1
+        else:
+            p_0 = np.ones(self.nS) / self.nS
+        return p_0
+
     def make_transition_matrices(self, states_iter, actions_iter, nS, nA):
         """
         states_iter: ITERATOR of states (i.e. can only be used once)

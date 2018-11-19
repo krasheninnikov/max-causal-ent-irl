@@ -42,3 +42,5 @@ pythonw test.py -e room -p bad -c add_rewards -i sampling -d true_reward,final_r
 pythonw test.py -e room -p bad -c add_rewards -i deviation -d true_reward,final_reward -H 5 -w 0.5
 pythonw test.py -e room -p bad -c add_rewards -i reachability -d true_reward,final_reward -H 5
 
+# Batteries
+pythonw test.py -e batteries -c add_rewards -d true_reward,final_reward -s 0 -H 11 -i mceirl -p easy
