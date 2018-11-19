@@ -174,6 +174,8 @@ class BatteriesEnv(DeterministicEnv):
                 grid[y][x] = 'B'
         print('\n'.join(['|'.join(row) for row in grid]))
 
+        print('carrying_battery: ', state.carrying_battery)
+
         # canvas = np.zeros(tuple([2*h-1, 3*w+1]), dtype='int8')
 
         # # cell borders

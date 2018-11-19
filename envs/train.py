@@ -170,6 +170,15 @@ class TrainEnv(DeterministicEnv):
         x, y = state.agent_pos
         canvas[2*y, 3*x + 2] = 3
 
+        # train
+        x, y = state.train_pos
+        if state.train_intact:
+            canvas[2*y, 3*x + 1] = 5
+        else:
+            canvas[2*y, 3*x + 1] = 6
+
+
+
         black_color = '\x1b[0m'
         purple_background_color = '\x1b[0;35;85m'
 
