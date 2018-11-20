@@ -135,7 +135,8 @@ def experiment_wrapper(env_name='vases',
                        seed=0,
                        std=0.5,
                        print_level=1,
-                       forward_rl_temp=0):
+                       soft_forward_rl=False,
+                       reward_constant=1.0):
     # Check the parameters so that we fail fast
     assert inference_algorithm in ['mceirl', 'sampling', 'deviation', 'reachability', 'pass']
     assert combination_algorithm in ['add_rewards', 'use_prior']
@@ -182,30 +183,40 @@ def experiment_wrapper(env_name='vases',
             print(); print('Inferred reward vector: ', r_inferred)
 
     # Run forward RL to evaluate
-    if combination_algorithm == "add_rewards":
-        r_final = r_task
-        if r_inferred is not None:
-            r_final = r_task + inferred_weight * r_inferred
-        true_reward_obtained = forward_rl(env, r_final, r_true, temp=forward_rl_temp, h=evaluation_horizon, current_s_num=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
-    elif combination_algorithm == "use_prior":
-        assert r_inferred is not None
-        assert (not deviation) and (not reachability)
-        r_final = r_inferred
-        true_reward_obtained = forward_rl(env, r_final, r_true, temp=forward_rl_temp, h=evaluation_horizon, current_s_num=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
-    else:
-        raise ValueError('Unknown combination algorithm: {}'.format(combination_algorithm))
-
-    best_possible_reward = forward_rl(env, r_true, r_true, temp=forward_rl_temp, h=evaluation_horizon, current_s_num=s_current, print_level=0)
-
-    def get_measure(measure):
-        if measure == 'final_reward':
-            return r_final
-        elif measure == 'true_reward':
-            return true_reward_obtained * 1.0 / best_possible_reward
+    def evaluate(forward_rl_temp):
+        if combination_algorithm == "add_rewards":
+            r_final = r_task
+            if r_inferred is not None:
+                r_final = r_task + inferred_weight * r_inferred
+            true_reward_obtained = forward_rl(env, r_final, r_true, temp=forward_rl_temp, h=evaluation_horizon, current_s_num=s_current, weight=inferred_weight, penalize_deviation=deviation, relative_reachability=reachability, print_level=print_level)
+        elif combination_algorithm == "use_prior":
+            assert r_inferred is not None
+            assert (not deviation) and (not reachability)
+            r_final = r_inferred
+            true_reward_obtained = forward_rl(env, r_final, r_true, temp=forward_rl_temp, h=evaluation_horizon, current_s_num=s_current, penalize_deviation=False, relative_reachability=False, print_level=print_level)
         else:
-            raise ValueError('Unknown measure {}'.format(measure))
+            raise ValueError('Unknown combination algorithm: {}'.format(combination_algorithm))
 
-    return [get_measure(measure) for measure in measures]
+        best_possible_reward = forward_rl(env, r_true, r_true, temp=forward_rl_temp, h=evaluation_horizon, current_s_num=s_current, print_level=0)
+
+        # Add the reward constant in
+        true_reward_obtained += reward_constant * evaluation_horizon
+        best_possible_reward += reward_constant * evaluation_horizon
+
+        def get_measure(measure):
+            if measure == 'final_reward':
+                return r_final
+            elif measure == 'true_reward':
+                return true_reward_obtained * 1.0 / best_possible_reward
+            else:
+                raise ValueError('Unknown measure {}'.format(measure))
+
+        return [get_measure(measure) for measure in measures]
+
+    if soft_forward_rl:
+        return [evaluate(temp) for temp in [0.1, 0.5, 1, 5, 10]]
+    else:
+        return [evaluate(0.0)]
 
 
 
@@ -250,8 +261,10 @@ PARAMETERS = [
      'Standard deviation for the prior'),
     ('-v', '--print_level', '1', int,
      'Level of verbosity.'),
-     ('-f', '--forward_rl_temp', '0.0', float,
-      'Boltzmann rationality constant for the robot in forward_rl evaluation; value 0 corresponds to a fully rational robot'),
+    ('-f', '--soft_forward_rl', 'False', lambda x: x != 'False',
+     'Evaluate with a range of temperatures for soft VI for forward RL if true, else evaluate with hard VI for forward RL'),
+    ('-q', '--reward_constant', '1.0', float,
+     'Living reward provided when evaluating performance.'),
 ]
 
 # Writing output for experiments
@@ -286,7 +299,7 @@ def parse_args(args=None):
         parser.add_argument(name, long_name, type=str, default=default, help=help_str)
 
     # Parameters that shouldn't be included in the filename.
-    parser.add_argument('-o', '--output_folder', type=str, default='results',
+    parser.add_argument('-o', '--output_folder', type=str, default='',
                         help='Output folder')
     return parser.parse_args(args)
 
@@ -319,22 +332,33 @@ def main():
     # For now, restrict to zero or one independent variables, but it
     # could be generalized to two variables
     if len(indep_vars_dict) == 0:
-        results = experiment_wrapper(measures=dependent_vars, **control_vars_dict)
-        print(results)
+        indep_var = 'N/A'
+        indep_vals = ['N/A']
+        results = [[] for _ in range(len(dependent_vars))]
+        for condition_result in experiment_wrapper(measures=dependent_vars, **control_vars_dict):
+            for i, result in enumerate(condition_result):
+                results[i].append(result)
+        results = [results]
     elif len(indep_vars_dict) == 1:
         indep_var = next(iter(indep_vars_dict.keys()))
         indep_vals = indep_vars_dict[indep_var]
         results = []
-
-        if not os.path.isfile(get_filename(args)):
-            for indep_val in indep_vals:
-                experiment_args = control_vars_dict.copy()
-                experiment_args[indep_var] = indep_val
-                experiment_args['measures'] = dependent_vars
-                results.append(experiment_wrapper(**experiment_args))
-            write_output(results, indep_var, indep_vals, dependent_vars, args)
+        for indep_val in indep_vals:
+            curr_results = [[] for _ in range(len(dependent_vars))]
+            experiment_args = control_vars_dict.copy()
+            experiment_args[indep_var] = indep_val
+            experiment_args['measures'] = dependent_vars
+            for condition_result in experiment_wrapper(**experiment_args):
+                for i, result in enumerate(condition_result):
+                    curr_results[i].append(result)
+            results.append(curr_results)
     else:
-        raise ValueError('Can only support one independent variable (that is, a flag with multiple comma-separated values)')
+        raise ValueError('Can only support up to one independent variable (that is, a flag with multiple comma-separated values)')
+
+    if args.output_folder == '' or os.path.isfile(get_filename(args)):
+        print(results)
+    else:
+        write_output(results, indep_var, indep_vals, dependent_vars, args)
 
 
 if __name__ == '__main__':
