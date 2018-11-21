@@ -214,7 +214,7 @@ def experiment_wrapper(env_name='vases',
         return [get_measure(measure) for measure in measures]
 
     if soft_forward_rl:
-        return [evaluate(temp) for temp in [0.1, 0.5, 1, 5, 10]]
+        return [evaluate(temp) for temp in [0, 0.1, 0.5, 1, 5, 10]]
     else:
         return [evaluate(0.0)]
 
